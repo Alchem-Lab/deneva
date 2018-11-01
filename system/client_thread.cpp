@@ -54,7 +54,8 @@ RC ClientThread::run() {
 
 	run_starttime = get_sys_clock();
 
-  while(!simulation->is_done()) {
+  while(!simulation->is_done()) 
+  {
     heartbeat();
 #if SERVER_GENERATE_QUERIES
     break;
@@ -100,7 +101,7 @@ RC ClientThread::run() {
 		num_txns_sent++;
 		txns_sent[next_node]++;
     INC_STATS(get_thd_id(),txn_sent_cnt,1);
-
+    break;
 	}
 
 

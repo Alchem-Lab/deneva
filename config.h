@@ -12,8 +12,8 @@
 #define CORE_CNT 8
 // PART_CNT should be at least NODE_CNT
 #define PART_CNT NODE_CNT
-#define CLIENT_NODE_CNT NODE_CNT
-#define CLIENT_THREAD_CNT 4
+#define CLIENT_NODE_CNT 1
+#define CLIENT_THREAD_CNT 1
 #define CLIENT_REM_THREAD_CNT 2
 #define CLIENT_SEND_THREAD_CNT 2
 #define CLIENT_RUNTIME false
@@ -40,7 +40,7 @@
 #define WORKLOAD YCSB
 // print the transaction latency distribution
 #define PRT_LAT_DISTR false
-#define STATS_ENABLE        true
+#define STATS_ENABLE        false
 #define TIME_ENABLE         true //STATS_ENABLE
 
 #define FIN_BY_TIME true
@@ -98,7 +98,7 @@
 // Concurrency Control
 /***********************************************/
 // WAIT_DIE, NO_WAIT, TIMESTAMP, MVCC, CALVIN, MAAT
-#define CC_ALG TIMESTAMP
+#define CC_ALG WAIT_DIE
 #define ISOLATION_LEVEL SERIALIZABLE
 #define YCSB_ABORT_MODE false
 
@@ -259,11 +259,11 @@ enum PPSTxnType {PPS_ALL = 0,
 #define IDX_VERB          false
 #define VERB_ALLOC          true
 
-#define DEBUG_LOCK          false
+#define DEBUG_LOCK          true
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH         false
 #define DEBUG_ASSERT        false
-#define DEBUG_DISTR false
+#define DEBUG_DISTR true
 #define DEBUG_ALLOC false
 #define DEBUG_RACE false
 #define DEBUG_TIMELINE        false
