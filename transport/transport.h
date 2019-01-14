@@ -22,6 +22,14 @@
 #include <nanomsg/pair.h>
 #include "query.h"
 
+#if USE_RDMA
+#include <sys/mman.h>
+#include "rdmaio.h"
+
+#define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
+#define HUGE_PAGE  1
+#endif
+
 class Workload;
 class Message;
 
@@ -61,7 +69,19 @@ class Transport {
 		void simple_send_msg(int size); 
 		uint64_t simple_recv_msg();
 
+    // RDMA related stuff.
+#if USE_RDMA
+    rdmaio::RdmaCtrl* rdmaCtrl = NULL;
+    char* rdma_buffer = NULL;
+#endif
+
 	private:
+
+#if USE_RDMA
+    void initRDMA();
+    void shutdownRDMA();
+#endif
+
     uint64_t rr;
     std::map<std::pair<uint64_t,uint64_t>,Socket*> send_sockets; // dest_node_id,send_thread_id : socket
     std::vector<Socket*> recv_sockets;
@@ -71,7 +91,11 @@ class Transport {
     uint64_t _s_cnt;
 		char ** ifaddr;
     int * endpoint_id;
-
 };
+
+#if USE_RDMA
+void* malloc_huge_pages(size_t size, uint64_t huge_page_sz, bool flag = true);
+inline double get_memory_size_g(uint64_t bytes) { static double G = 1024.0 * 1024 * 1024; return bytes / G; }
+#endif
 
 #endif

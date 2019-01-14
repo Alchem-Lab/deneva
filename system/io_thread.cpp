@@ -31,7 +31,17 @@
 #include "client_txn.h"
 #include "work_queue.h"
 
+// default the rmda device port to use as 1.
+int use_port_ = 1;
+int QP_NUMS = 1
+#define USE_UD_MSG 0
+
 void InputThread::setup() {
+#if USE_RDMA
+  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL);
+  setup_rdma(tport_man.rdmaCtrl);
+  create_qps(tport_man.rdmaCtrl);
+#endif
 
   std::vector<Message*> * msgs;
   while(!simulation->is_setup_done()) {
@@ -67,6 +77,38 @@ void InputThread::setup() {
     delete msgs;
   }
 }
+
+#if USE_RDMA
+void InputThread::setup_rdma(rdmaio::RdmaCtrl* cm_) {
+  cm_->thread_local_init();
+  // get the device id and port id used on the nic.
+
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+  ASSERT(port_idx > 0) << "worker " << _thd_id
+                       << " get port idx " << port_idx;
+
+  // open the specific RNIC handler, and register its memory
+  cm_->open_device(dev_id);
+  cm_->register_connect_mr(dev_id); // register memory on the specific device  
+}
+
+void InputThread::create_qps(rdmaio::RdmaCtrl* cm_) {
+  LOG(1) << "using RDMA device: " << use_port_ << " to create qps @" << _thd_id;
+  assert(use_port_ >= 0); // check if init_rdma has been called
+
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+
+  for(uint i = 0; i < QP_NUMS; i++){
+    cm_->link_connect_qps(_thd_id, dev_id, port_idx, i, IBV_QPT_RC);
+  }
+  // note, link_connect_qps correctly handles duplicates creations
+#if USE_UD_MSG == 0 // use RC QP, thus create its QP
+  cm_->link_connect_qps(_thd_id, dev_id, port_idx, 0, IBV_QPT_RC);
+#endif // USE_UD_MSG  
+}
+#endif
 
 RC InputThread::run() {
   tsetup();
@@ -183,6 +225,13 @@ RC InputThread::server_recv_loop() {
 }
 
 void OutputThread::setup() {
+#if USE_RDMA
+  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL);
+  setup_rdma(tport_man.rdmaCtrl);
+  create_qps(tport_man.rdmaCtrl);
+  create_rdma_rc_connections();
+#endif
+
   DEBUG_M("OutputThread::setup MessageThread alloc\n");
   messager = (MessageThread *) mem_allocator.alloc(sizeof(MessageThread));
   messager->init(_thd_id);
@@ -190,6 +239,47 @@ void OutputThread::setup() {
     messager->run();
   }
 }
+
+#if USE_RDMA
+void OutputThread::setup_rdma(rdmaio::RdmaCtrl* cm_) {
+  cm_->thread_local_init();
+
+  // get the device id and port id used on the nic.
+
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+  ASSERT(port_idx > 0) << "worker " << _thd_id
+                       << " get port idx " << port_idx;
+
+  // open the specific RNIC handler, and register its memory
+  cm_->open_device(dev_id);
+  cm_->register_connect_mr(dev_id); // register memory on the specific device  
+}
+
+void OutputThread::create_qps(rdmaio::RdmaCtrl* cm_) {
+  LOG(1) << "using RDMA device: " << use_port_ << " to create qps @" << _thd_id;
+  assert(use_port_ >= 0); // check if init_rdma has been called
+
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+
+  for(uint i = 0; i < QP_NUMS; i++){
+    cm_->link_connect_qps(_thd_id, dev_id, port_idx, i, IBV_QPT_RC);
+  }
+  // note, link_connect_qps correctly handles duplicates creations
+#if USE_UD_MSG == 0 // use RC QP, thus create its QP
+  cm_->link_connect_qps(_thd_id, dev_id, port_idx, 0, IBV_QPT_RC);
+#endif // USE_UD_MSG  
+}
+
+void OutputThread::create_rdma_rc_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding) {
+  ASSERT(msg_handler_ == NULL);
+  msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer,
+                                 std::bind(&OutputThread::poll_comp_callback, this,
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
+}
+
+#endif
 
 RC OutputThread::run() {
 

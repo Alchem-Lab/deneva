@@ -63,9 +63,7 @@ void Thread::tsetup() {
 	printf("Setup %ld:%ld\n",_node_id, _thd_id);
   fflush(stdout);
 	pthread_barrier_wait( &warmup_bar );
-
   setup();
-
 	printf("Running %ld:%ld\n",_node_id, _thd_id);
   fflush(stdout);
 	pthread_barrier_wait( &warmup_bar );

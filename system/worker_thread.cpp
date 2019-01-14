@@ -511,7 +511,7 @@ RC WorkerThread::process_rtxn(Message * msg) {
     if(rc != RCOK)
       return rc;
 
-    // Execute transaction
+    // Execute transactionrun
     rc = txn_man->run_txn();
   check_if_done(rc);
     return rc;

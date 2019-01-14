@@ -323,7 +323,7 @@ int main(int argc, char* argv[])
   printf("\n");
   fflush(stdout);
   // Free things
-	//tport_man.shutdown();
+	tport_man.shutdown();
   m_wl->index_delete_all();
 
   /*

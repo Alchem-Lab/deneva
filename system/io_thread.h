@@ -36,6 +36,9 @@ public:
 	RC 			run();
   void setup();
   MessageThread * messager;
+
+  bool  poll_comp_callback(char *msg,int nid,int tid);
+  rdmaio::MsgHandler * msg_handler_ = NULL;
 };
 
 #endif

@@ -216,9 +216,75 @@ void Transport::init() {
     }
   }
 
-
 	fflush(stdout);
+#if USE_RDMA
+  printf("Tport RDMA Init %d.\n",g_node_id);
+  initRDMA();
+#endif 
 }
+
+void Transport::shutdown() {
+#if USE_RDMA
+  shutdownRDMA();
+#endif
+}
+
+#if USE_RDMA
+void* malloc_huge_pages(size_t size, uint64_t huge_page_sz, bool flag) {
+  printf("malloc_huge_pages: size = %ld huge_page_sz = %ld, flag = %d", size, huge_page_sz, flag);
+
+  char *ptr; // the return value
+#define ALIGN_TO_PAGE_SIZE(x)  (((x) + huge_page_sz - 1) / huge_page_sz * huge_page_sz)
+  size_t real_size = ALIGN_TO_PAGE_SIZE(size + huge_page_sz);
+
+  if(flag) {
+    // Use 1 extra page to store allocation metadata
+    // (libhugetlbfs is more efficient in this regard)
+    char *ptr = (char *)mmap(NULL, real_size, PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS |
+                             MAP_POPULATE | MAP_HUGETLB, -1, 0);
+    if (ptr == MAP_FAILED) {
+      // The mmap() call failed. Try to malloc instead
+      printf("huge page alloc failed!");
+      goto ALLOC_FAILED;
+    } else {
+      printf("huge page real size %lf", (double)(get_memory_size_g(real_size)));
+      // Save real_size since mmunmap() requires a size parameter
+      *((size_t *)ptr) = real_size;
+      // Skip the page with metadata
+      return ptr + huge_page_sz;
+    }
+  }
+ALLOC_FAILED:
+  ptr = (char *)malloc(real_size);
+  if (ptr == NULL) return NULL;
+  real_size = 0;
+  return ptr + huge_page_sz;
+}
+
+void Transport::initRDMA() {
+  uint64_t M = 1024*1024;
+  uint64_t r_buffer_size = M*RBUF_SIZE_M;
+
+  std::vector<std::string> net_def_;
+  for (unsigned node = 0; node < g_total_node_cnt; node++)
+    net_def_.push_back(std::string(ifaddr[node]));
+
+  int tcp_port = 383839;
+  rdma_buffer = (char *)malloc_huge_pages(r_buffer_size, HUGE_PAGE_SZ, HUGE_PAGE);
+  
+  // start creating RDMA
+  rdmaCtrl = new rdmaio::RdmaCtrl(g_node_id, net_def_, tcp_port, false);
+  rdmaCtrl->set_connect_mr(rdma_buffer, r_buffer_size); // register the buffer
+
+  rdmaCtrl->query_devinfo();
+  rdmaCtrl->start_server(); // listening server for receive QP connection requests
+}
+
+void Transport::shutdownRDMA() {
+  rdmaCtrl->end_server();
+}
+#endif
 
 // rename sid to send thread id
 void Transport::send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
@@ -239,6 +305,11 @@ void Transport::send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * 
 
   INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
   INC_STATS(send_thread_id,msg_send_cnt,1);
+}
+
+// send msg through RDMA
+void Transport::send_msg_rdma() {
+  
 }
 
 // Listens to sockets for messages from other nodes
