@@ -26,15 +26,18 @@ namespace rdmaio {
 
     virtual Qp::IOStatus broadcast_to(const std::set<int> &server_set, char *msg,int len) {
       prepare_pending();
+      Qp::IOStatus ret;
       for(auto it = server_set.begin();it != server_set.end();++it) {
-        post_pending(*it,msg,len);
+        ret = post_pending(*it,msg,len);
+        if (ret != Qp::IO_SUCC)
+          return ret;
       }
-      flush_pending();
+      return flush_pending();
     }
 
     // delayed send methods; the message shall be sent after flush_pending
     virtual Qp::IOStatus prepare_pending() {
-
+      return Qp::IO_SUCC;
     }
 
     virtual Qp::IOStatus post_pending(int node_id,char *msg,int len) {
@@ -46,6 +49,7 @@ namespace rdmaio {
     }
 
     virtual Qp::IOStatus flush_pending() {
+      return Qp::IO_SUCC;
     }
 
     virtual void force_sync(int *node_id,int num_of_node) {

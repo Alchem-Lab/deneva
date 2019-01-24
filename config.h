@@ -2,13 +2,14 @@
 
 #define _CONFIG_H_
 
-#define USE_RDMA 1
-
 /***********************************************/
 // RDMA related parameters
 /***********************************************/
+#define USE_RDMA 1
+#define HUGE_PAGE  1
 #define RBUF_SIZE_M 10240 // default size: 10G
-
+#define MAX_MSG_SIZE 4096
+#define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
 
 /***********************************************/
 // Simulation + Hardware

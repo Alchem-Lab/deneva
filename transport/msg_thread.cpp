@@ -59,7 +59,11 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
     DEBUG("Send batch of %ld msgs to %ld\n",sbuf->cnt,dest_node_id);
+#if USE_RDMA
+    tport_man.send_msg_rc_rdma(_thd_id,dest_node_id,sbuf->buffer,sbuf->ptr);
+#else
     tport_man.send_msg(_thd_id,dest_node_id,sbuf->buffer,sbuf->ptr);
+#endif
 
     INC_STATS(_thd_id,msg_batch_size_msgs,sbuf->cnt);
     INC_STATS(_thd_id,msg_batch_size_bytes,sbuf->ptr);

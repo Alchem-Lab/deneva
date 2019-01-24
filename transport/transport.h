@@ -25,9 +25,7 @@
 #if USE_RDMA
 #include <sys/mman.h>
 #include "rdmaio.h"
-
-#define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
-#define HUGE_PAGE  1
+#include "msg_handler.h"
 #endif
 
 class Workload;
@@ -64,8 +62,16 @@ class Transport {
     uint64_t get_port_id(uint64_t src_node_id, uint64_t dest_node_id, uint64_t send_thread_id); 
     Socket * bind(uint64_t port_id); 
     Socket * connect(uint64_t dest_id,uint64_t port_id); 
-    void send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size); 
+    void send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
+#if USE_RDMA
+    void send_msg_rc_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
+    void send_msg_ud_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
+#endif
     std::vector<Message*> * recv_msg(uint64_t thd_id);
+#if USE_RDMA
+    std::vector<Message*> * recv_msg_rc_rdma(uint64_t thd_id);
+    std::vector<Message*> * recv_msg_ud_rdma(uint64_t thd_id);
+#endif
 		void simple_send_msg(int size); 
 		uint64_t simple_recv_msg();
 
@@ -73,6 +79,15 @@ class Transport {
 #if USE_RDMA
     rdmaio::RdmaCtrl* rdmaCtrl = NULL;
     char* rdma_buffer = NULL;
+    std::map<uint64_t, rdmaio::MsgHandler*> msg_handlers; // send_thread_id : msg_handler
+    std::map<uint64_t, char*> recv_buffers;
+
+    /**
+    * RDMA RC based message.
+    */
+    uint64_t total_ring_sz;
+    uint64_t ring_padding;
+    uint64_t ringsz;
 #endif
 
 	private:

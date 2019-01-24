@@ -212,8 +212,21 @@ int main(int argc, char* argv[])
     pthread_attr_init(&attr);
 
     worker_thds = new WorkerThread[wthd_cnt];
+#if USE_RDMA
+    void* raw_memory = operator new[](rthd_cnt * sizeof(InputThread));
+    input_thds = static_cast<InputThread*>(raw_memory);
+    for (uint64_t i = 0; i < rthd_cnt; i++) {
+      new (&input_thds[i])InputThread(tport_man.rdmaCtrl);
+    }
+    raw_memory = operator new[](sthd_cnt * sizeof(OutputThread));
+    output_thds = static_cast<OutputThread*>(raw_memory);
+    for (uint64_t i = 0; i < sthd_cnt; i++) {
+      new (&output_thds[i])OutputThread(tport_man.rdmaCtrl);
+    }
+#else
     input_thds = new InputThread[rthd_cnt];
     output_thds = new OutputThread[sthd_cnt];
+#endif
     abort_thds = new AbortThread[1];
     log_thds = new LogThread[1];
 #if CC_ALG == CALVIN

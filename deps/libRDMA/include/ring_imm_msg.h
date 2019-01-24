@@ -65,6 +65,7 @@ namespace rdmaio {
       }
 
       Qp::IOStatus flush_pending() {
+        return Qp::IO_SUCC;
       }
 
       // force a sync among all current in-flight messages, return when all these msgs are ready

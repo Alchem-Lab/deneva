@@ -22,6 +22,9 @@
 #include "query.h"
 #include "message.h"
 
+#if USE_RDMA
+#include "ring_imm_msg.h"
+#endif
 
 #define MAX_IFADDR_LEN 20 // max # of characters in name of address
 
@@ -279,6 +282,15 @@ void Transport::initRDMA() {
 
   rdmaCtrl->query_devinfo();
   rdmaCtrl->start_server(); // listening server for receive QP connection requests
+
+  // Calculating message size
+  using namespace rdmaio::ring_imm_msg;
+  ring_padding = MAX_MSG_SIZE;
+  total_ring_sz = (2 * MAX_MSG_SIZE + 2 * 4096)  + ring_padding + MSG_META_SZ; // used for applications
+  assert(total_ring_sz < r_buffer_size);
+  ringsz = total_ring_sz - ring_padding - MSG_META_SZ;
+  uint64_t ring_area_sz = (total_ring_sz * g_total_node_cnt) * (g_rem_thread_cnt + g_send_thread_cnt);
+  cout << "[Mem] Total msg buf area: " << get_memory_size_g(ring_area_sz) << "G.";  
 }
 
 void Transport::shutdownRDMA() {
@@ -307,10 +319,34 @@ void Transport::send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * 
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
 
-// send msg through RDMA
-void Transport::send_msg_rdma() {
-  
+#if USE_RDMA
+// send msg through RDMA RC connection
+void Transport::send_msg_rc_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
+  uint64_t starttime = get_sys_clock();
+
+  rdmaio::MsgHandler* msg_handler = msg_handlers.find(send_thread_id)->second;
+  assert(msg_handler != NULL);
+  msg_handler->send_to(dest_node_id, (char*)sbuf, size);
+  DEBUG("%ld Batch of %d bytes sent to node %ld\n",send_thread_id,size,dest_node_id);
+
+  INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
+  INC_STATS(send_thread_id,msg_send_cnt,1);
 }
+
+// send msg through RDMA Ud connection
+void Transport::send_msg_ud_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
+  uint64_t starttime = get_sys_clock();
+
+  rdmaio::MsgHandler* msg_handler = msg_handlers.find(send_thread_id)->second;
+  assert(msg_handler != NULL);
+  msg_handler->send_to(dest_node_id, (char*)sbuf, size);
+  DEBUG("%ld Batch of %d bytes sent to node %ld\n",send_thread_id,size,dest_node_id);
+
+  INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
+  INC_STATS(send_thread_id,msg_send_cnt,1);
+}
+
+#endif
 
 // Listens to sockets for messages from other nodes
 std::vector<Message*> * Transport::recv_msg(uint64_t thd_id) {
@@ -374,6 +410,61 @@ std::vector<Message*> * Transport::recv_msg(uint64_t thd_id) {
   return msgs;
 }
 
+#if USE_RDMA
+std::vector<Message*> * Transport::recv_msg_rc_rdma(uint64_t thd_id) {
+  char* buf = NULL;
+  uint64_t starttime = get_sys_clock();
+  std::vector<Message*> * msgs = NULL;
+
+  rdmaio::MsgHandler* msg_handler = msg_handlers.find(thd_id)->second;
+  assert(msg_handler != NULL);
+
+  if(msg_handler != NULL)
+    msg_handler->poll_comps(); // poll rpcs requests/replies
+  buf = recv_buffers[thd_id];
+  if (buf == NULL) {
+    INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
+    return msgs;    
+  }
+
+  INC_STATS(thd_id,msg_recv_time, get_sys_clock() - starttime);
+  INC_STATS(thd_id,msg_recv_cnt,1);
+  starttime = get_sys_clock();
+
+  msgs = Message::create_messages(buf);
+  DEBUG("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,simulation->seconds_from_start(get_sys_clock()));
+  INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
+  recv_buffers[thd_id] = NULL;
+  return msgs;
+}
+
+std::vector<Message*> * Transport::recv_msg_ud_rdma(uint64_t thd_id) {
+  char* buf = NULL;
+  uint64_t starttime = get_sys_clock();
+  std::vector<Message*> * msgs = NULL;
+
+  rdmaio::MsgHandler* msg_handler = msg_handlers.find(thd_id)->second;
+  assert(msg_handler != NULL);
+
+  if(msg_handler != NULL)
+    msg_handler->poll_comps(); // poll rpcs requests/replies
+  buf = recv_buffers[thd_id];
+  if (buf == NULL) {
+    INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
+    return msgs;    
+  }
+
+  INC_STATS(thd_id,msg_recv_time, get_sys_clock() - starttime);
+  INC_STATS(thd_id,msg_recv_cnt,1);
+  starttime = get_sys_clock();
+
+  msgs = Message::create_messages(buf);
+  DEBUG("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,simulation->seconds_from_start(get_sys_clock()));
+  INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
+  recv_buffers[thd_id] = NULL;
+  return msgs;
+}
+#endif
 /*
 void Transport::simple_send_msg(int size) {
 	void * sbuf = nn_allocmsg(size,0);
