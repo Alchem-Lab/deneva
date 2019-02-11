@@ -1,7 +1,7 @@
 #!/bin/bash
 
 srun hostname -s | sort -n > slurm.hosts
-USERNAME=chao
+USERNAME=$USER
 HOSTS=`cat slurm.hosts`
 NODE_CNT="$1"
 count=0
@@ -18,10 +18,10 @@ done
 #run the distributed DBMS
 for HOSTNAME in ${HOSTS}; do
   if [ "$count" -ge "$NODE_CNT" ]; then
-	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ./runcl -nid${count} > ${count}.out 2>&1"
+	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ../runcl -nid${count} > ${count}.out 2>&1"
     echo "${HOSTNAME}: runcl -nid${count}"
   else
-	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ./rundb -nid${count} > ${count}.out"
+	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ../rundb -nid${count} > ${count}.out"
     echo "${HOSTNAME}: rundb -nid${count}"
   fi
 	ssh -n -o BatchMode=yes -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}" &
@@ -34,4 +34,4 @@ while [ $count -gt 0 ]; do
 	count=`expr $count - 1`
 done
 
-scancel -u chao
+scancel -u $USER
