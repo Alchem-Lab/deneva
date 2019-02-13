@@ -23,15 +23,14 @@
 void AbortThread::setup() {
 }
 
-RC AbortThread::run() {
+void AbortThread::run() {
   tsetup();
   printf("Running AbortThread %ld\n",_thd_id);
 	while (!simulation->is_done()) {
     heartbeat();
     abort_queue.process(get_thd_id());
   }
-  return FINISH;
- 
+  return;
 }
 
 

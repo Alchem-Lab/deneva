@@ -29,9 +29,10 @@ struct BackupInfo {
   }
 
   friend std::ostream& operator<<(std::ostream& ss, const BackupInfo& b) {
-    for(uint i = 0;i < b.rep_factor;++i)
+    for(int i = 0;i < b.rep_factor;++i)
       ss << b.mapping[i] << ",";
     ss << ".";
+    return ss;
   }
 };
 
@@ -53,7 +54,7 @@ class SymmetricView {
    * add pid's backup list to the mac_set.
    */
   inline void add_backup(int pid,std::set<int> &mac_set) {
-    for(uint i = 0;i < rep_factor_;++i)
+    for(int i = 0;i < rep_factor_;++i)
       mac_set.insert(mapping_[pid][i]);
   }
 
@@ -77,7 +78,7 @@ class SymmetricView {
    * Otherwise, return false.
    */
   inline bool is_backup(int bid,int pid,int iterating_num) {
-    for(uint i = 0;i < iterating_num;++i)
+    for(int i = 0;i < iterating_num;++i)
       if(mapping_[pid][i] == bid)
         return true;
     return false;

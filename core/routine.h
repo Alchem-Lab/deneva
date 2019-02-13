@@ -50,7 +50,7 @@ struct RoutineMeta {
 
   RoutineMeta *prev_;
   RoutineMeta *next_;
-  int  id_;
+  unsigned int  id_;
   coroutine_func_t *routine_;
   bool active_;
 

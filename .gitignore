@@ -1,5 +1,5 @@
 config.h
-*.o
+**/*.o
 results*
 figs*
 *ifconfig.txt
@@ -7,3 +7,4 @@ rundb
 runcl
 run/slurm.hosts
 *.out
+obj/

@@ -21,10 +21,21 @@
 
 class Workload;
 
+#if USE_RDMA == 1
+#include "rdmaio.h"
 class AbortThread : public Thread {
 public:
-	RC 			run();
+  AbortThread(int worker_id, rdmaio::RdmaCtrl *cm, int seed = 0) : Thread(worker_id, cm, seed) {}
+  void run();
+  void setup();
+  void register_callbacks() {}
+  void worker_routine(yield_func_t &yield) {}
+};
+#else
+class AbortThread : public Thread {
+public:
+	void run();
   void setup();
 };
-
+#endif
 #endif

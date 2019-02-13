@@ -17,6 +17,7 @@
 #include "global.h"
 #include "manager.h"
 #include "thread.h"
+#include "transport.h"
 #include "txn.h"
 #include "wl.h"
 #include "query.h"
@@ -49,15 +50,46 @@ void Thread::send_init_done_to_all_nodes() {
 		}
 }
 
+#if USE_RDMA == 1
+void Thread::init(uint64_t node_id, Workload * workload) {
+  _thd_id = worker_id_;
+  _node_id = node_id;
+  _wl = workload;
+  rdm.init(_thd_id);
+}
+#else
 void Thread::init(uint64_t thd_id, uint64_t node_id, Workload * workload) {
 	_thd_id = thd_id;
 	_node_id = node_id;
 	_wl = workload;
 	rdm.init(_thd_id);
 }
+#endif
 
 uint64_t Thread::get_thd_id() { return _thd_id; }
 uint64_t Thread::get_node_id() { return _node_id; }
+
+#if USE_RDMA == 1
+void Thread::tRDMAsetup() {
+  BindToCore(worker_id_); // really specified to platforms
+  init_routines(server_routine);
+
+  init_rdma();
+  create_qps();
+
+#if USE_UD_MSG == 1
+  type = UD_MSG;
+  int total_connections = 1;
+  create_rdma_ud_connections(total_connections);
+#else
+  create_rdma_rc_connections(tport_man.rdma_buffer + HUGE_PAGE_SZ,
+                             tport_man.total_ring_sz, tport_man.ring_padding);
+#endif
+
+  this->thread_local_init();   // application specific init
+  register_callbacks();
+}
+#endif
 
 void Thread::tsetup() {
 	printf("Setup %ld:%ld\n",_node_id, _thd_id);
@@ -67,7 +99,12 @@ void Thread::tsetup() {
 	printf("Running %ld:%ld\n",_node_id, _thd_id);
   fflush(stdout);
 	pthread_barrier_wait( &warmup_bar );
-
+#if USE_RDMA == 1
+  tRDMAsetup();
+  printf("Running %ld:%ld RDMA setup\n",_node_id, _thd_id);
+  fflush(stdout);
+  pthread_barrier_wait( &warmup_bar );  
+#endif
 #if TIME_ENABLE
   run_starttime = get_sys_clock();
 #else
@@ -77,8 +114,6 @@ void Thread::tsetup() {
   prog_time = run_starttime;
   heartbeat_time = run_starttime;
 	pthread_barrier_wait( &warmup_bar );
-
-
 }
 
 void Thread::progress_stats() {
@@ -101,3 +136,12 @@ void Thread::progress_stats() {
 		}
 
 }
+
+#if USE_RDMA == 1
+void Thread::run() {
+  LOG(2) << "Starting running Thread.";
+  // waiting for master to start workers
+  this->inited = true;
+  start_routine();
+}
+#endif

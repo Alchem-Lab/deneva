@@ -66,7 +66,8 @@ class RScheduler {
    * return whether polling is needed
    */
   bool post_batch_pending(rdmaio::Qp *qp,int cor_id,struct ibv_send_wr *send_sr,ibv_send_wr **bad_sr_addr,int doorbell_num = 0) {
-    if(qp->rc_need_poll()) {
+    bool ret = qp->rc_need_poll();
+    if(ret) {
       auto temp =  send_sr[doorbell_num].send_flags;
       send_sr[doorbell_num].send_flags |= IBV_SEND_SIGNALED;
       post_batch(qp,cor_id,send_sr,bad_sr_addr,doorbell_num);
@@ -76,6 +77,8 @@ class RScheduler {
       send_sr[doorbell_num].wr_id = encode_wrid(cor_id,qp->high_watermark_);
       qp->rc_post_batch(send_sr,bad_sr_addr);
     }
+
+    return ret;
   }
 
 

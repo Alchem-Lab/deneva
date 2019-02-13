@@ -3,7 +3,7 @@
 #include <map>
 #include "core/rrpc.h"
 
-#include "tx_config.h"
+#include "config.h"
 
 #include "tx_operator.hpp"
 #include "log_mem_manager.hpp"
@@ -14,7 +14,7 @@ namespace nocc {
 namespace rtx {
 
 class RdmaChecker;
-class OCC;
+class ROCC;
 
 // Abstract logger class
 class Logger {
@@ -33,8 +33,8 @@ class Logger {
       mem_(local_p,ms,ts,size,entry_size,base_off),
       cleaner_(expected_store_num,rpc),
       rpc_handler_(rpc),
-      ack_rpc_id_(ack_rpc_id),
-      reply_buf_((char *)malloc(ms * sizeof(uint64_t)))
+      reply_buf_((char *)malloc(ms * sizeof(uint64_t))),
+      ack_rpc_id_(ack_rpc_id)
 
   {
     cleaner_.register_callback(ack_rpc_id_,rpc_handler_);
@@ -71,7 +71,7 @@ class Logger {
   const int ack_rpc_id_;
 
   friend RdmaChecker;
-  friend OCC;
+  friend ROCC;
 
   DISABLE_COPY_AND_ASSIGN(Logger);
 }; // logger

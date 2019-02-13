@@ -1,4 +1,4 @@
-#include "tx_config.h"
+#include "config.h"
 
 namespace nocc {
 namespace rtx  {

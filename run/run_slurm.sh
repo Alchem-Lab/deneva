@@ -5,4 +5,4 @@ if [ x$1 == 'x' -o x$2 == 'x' ]; then
 	exit
 fi
 
-salloc -N $1 -t 00:30:00 ./run.sh $2
+salloc -N $1 -t 00:10:00 ./run.sh $2

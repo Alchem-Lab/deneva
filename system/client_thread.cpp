@@ -41,7 +41,7 @@ void ClientThread::setup() {
 
 }
 
-RC ClientThread::run() {
+void ClientThread::run() {
 
   tsetup();
   printf("Running ClientThread %ld\n",_thd_id);
@@ -112,5 +112,5 @@ RC ClientThread::run() {
 
   printf("FINISH %ld:%ld\n",_node_id,_thd_id);
   fflush(stdout);
-	return FINISH;
+	return;
 }

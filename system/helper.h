@@ -88,7 +88,8 @@
     fflush(stdout); \
 		exit(0); \
 	}
-#define ASSERT(cond) assert(cond)
+// commented out to remove duplicate declaration error.
+// #define ASSERT(cond) assert(cond)
 
 
 /************************************************/

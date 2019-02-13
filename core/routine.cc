@@ -49,12 +49,12 @@ void RoutineMeta::thread_local_init(int num_ros,int coroutines,coroutine_func_t 
   // init next routine array
   next_routine_array = new RoutineMeta[coroutines + 1];
 
-  for(uint i = 0;i < coroutines + 1;++i) {
+  for(int i = 0;i < coroutines + 1;++i) {
     next_routine_array[i].id_   = i;
     next_routine_array[i].routine_ = routines_ + i;
   }
 
-  for(uint i = 0;i < coroutines + 1;++i) {
+  for(int i = 0;i < coroutines + 1;++i) {
     next_routine_array[i].prev_ = next_routine_array + i - 1;
     next_routine_array[i].next_ = next_routine_array + i + 1;
   }
@@ -70,7 +70,7 @@ void RoutineMeta::thread_local_init(int num_ros,int coroutines,coroutine_func_t 
 
   // init ro routine pool
   ro_pool = new std::queue<RoutineMeta *>();
-  for(uint i = 0;i < num_ros;++i) {
+  for(int i = 0;i < num_ros;++i) {
     RoutineMeta *meta = new RoutineMeta;
     meta->prev_ = NULL; meta->next_ = NULL; meta->id_ = 0;
     meta->routine_ = new coroutine_func_t(bind(one_shot_func,_1,meta));

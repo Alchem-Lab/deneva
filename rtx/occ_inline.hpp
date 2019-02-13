@@ -6,7 +6,7 @@ namespace rtx  {
 
 template <int tableid,typename V>
 inline __attribute__((always_inline))
-int OCC::read(int pid,uint64_t key,yield_func_t &yield) {
+int ROCC::read(int pid,uint64_t key,yield_func_t &yield) {
   if(pid == node_id_)
     return local_read(tableid,key,sizeof(V),yield);
   else {
@@ -17,7 +17,7 @@ int OCC::read(int pid,uint64_t key,yield_func_t &yield) {
 
 template <int tableid,typename V>
 inline __attribute__((always_inline))
-int OCC::pending_read(int pid,uint64_t key,yield_func_t &yield) {
+int ROCC::pending_read(int pid,uint64_t key,yield_func_t &yield) {
   if(pid == node_id_)
     return local_read(tableid,key,sizeof(V),yield);
   else
@@ -26,7 +26,7 @@ int OCC::pending_read(int pid,uint64_t key,yield_func_t &yield) {
 
 template <int tableid,typename V>
 inline __attribute__((always_inline))
-int OCC::insert(int pid,uint64_t key,V *val,yield_func_t &yield) {
+int ROCC::insert(int pid,uint64_t key,V *val,yield_func_t &yield) {
   if(pid == node_id_)
     return local_insert(tableid,key,(char *)val,sizeof(V),yield);
   else {
@@ -38,7 +38,7 @@ int OCC::insert(int pid,uint64_t key,V *val,yield_func_t &yield) {
 
 template <int tableid,typename V>
 inline __attribute__((always_inline))
-int OCC::add_to_write(int pid,uint64_t key,yield_func_t &yield) {
+int ROCC::add_to_write(int pid,uint64_t key,yield_func_t &yield) {
   if(pid == node_id_){
     assert(false); // not implemented
   }
@@ -50,7 +50,7 @@ int OCC::add_to_write(int pid,uint64_t key,yield_func_t &yield) {
 }
 
 inline __attribute__((always_inline))
-int OCC::add_to_write(int idx) {
+int ROCC::add_to_write(uint idx) {
   assert(idx >= 0 && idx < read_set_.size());
   write_set_.emplace_back(read_set_[idx]);
 
@@ -61,13 +61,13 @@ int OCC::add_to_write(int idx) {
 }
 
 inline __attribute__((always_inline))
-int OCC::add_to_write() {
+int ROCC::add_to_write() {
   return add_to_write(read_set_.size() - 1);
 }
 
 template <typename V>
 inline __attribute__((always_inline))
-V *OCC::get_readset(int idx,yield_func_t &yield) {
+V *ROCC::get_readset(int idx,yield_func_t &yield) {
   assert(idx < read_set_.size());
   ASSERT(sizeof(V) == read_set_[idx].len) <<
       "excepted size " << (int)(read_set_[idx].len)  << " for table " << (int)(read_set_[idx].tableid) << "; idx " << idx;
@@ -89,14 +89,14 @@ V *OCC::get_readset(int idx,yield_func_t &yield) {
 
 template <typename V>
 inline __attribute__((always_inline))
-V *OCC::get_writeset(int idx,yield_func_t &yield) {
+V *ROCC::get_writeset(int idx,yield_func_t &yield) {
   assert(idx < write_set_.size());
   return (V *)write_set_[idx].data_ptr;
 }
 
 
 inline __attribute__((always_inline))
-void OCC::gc_readset() {
+void ROCC::gc_readset() {
   for(auto it = read_set_.begin();it != read_set_.end();++it) {
     //if(it->pid == node_id_)
     free((*it).data_ptr);
@@ -104,7 +104,7 @@ void OCC::gc_readset() {
 }
 
 inline __attribute__((always_inline))
-void OCC::gc_writeset() {
+void ROCC::gc_writeset() {
   for(auto it = write_set_.begin();it != write_set_.end();++it) {
     //if(it->pid == node_id_)
     free((*it).data_ptr);

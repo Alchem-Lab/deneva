@@ -2,7 +2,7 @@
 #define NOCC_OLTP_BENCH_WORKER_H
 
 #include "all.h"
-#include "./utils/thread.h"
+#include "./utils/ndb_thread.h"
 #include "./utils/util.h"
 
 #include "rrpc.h"
@@ -37,9 +37,9 @@ class RWorker : public ndb_thread {
   };
 
   RWorker(int worker_id,RdmaCtrl *cm,uint64_t seed = 0)
-      :cm_(cm),
-       worker_id_(worker_id),
-       rand_generator_(seed) // the random generator used at this thread
+      :worker_id_(worker_id),
+       rand_generator_(seed), // the random generator used at this thread
+       cm_(cm)
   {
   }
 
@@ -134,7 +134,7 @@ class RWorker : public ndb_thread {
   int cor_id() const { return cor_id_; }
 
  public:
-  const unsigned int worker_id_;  // thread id of the running routine
+  const int worker_id_;  // thread id of the running routine
   RoutineMeta *routine_meta_ = NULL;
 
   util::fast_random rand_generator_;
@@ -150,15 +150,15 @@ class RWorker : public ndb_thread {
   bool   running = false;
   bool   inited  = false;
 
-
- private:
+  // [chao]: change msg_handlers to protected so that child class can see.
   MsgHandler *msg_handler_ = NULL;  // communication between servers
   UDMsg *client_handler_   = NULL;  // communication with clients
+ private:
   MSGER_TYPE  server_type_ = UD_MSG;
   coroutine_func_t *routines_ = NULL;
 
   // coroutine related stuffs
-  int    total_worker_coroutine = 0;
+  uint    total_worker_coroutine = 0;
 
   void new_master_routine(yield_func_t &yield,int cor_id);
 

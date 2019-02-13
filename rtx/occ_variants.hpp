@@ -1,4 +1,4 @@
-// This file implements various of OCC protocol on top two-sided~(messaging) primitives
+// This file implements various of ROCC protocol on top two-sided~(messaging) primitives
 
 #include "occ.h"
 
@@ -7,10 +7,10 @@ namespace nocc {
 namespace rtx {
 
 // Add FaSST's optimizations, such as logging, merging execution
-class OCCFast : public OCC {
+class OCCFast : public ROCC {
  public:
   OCCFast(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int response_node)
-      :OCC(worker,db,rpc_handler,nid,cid,response_node) {
+      :ROCC(worker,db,rpc_handler,nid,cid,response_node) {
 
   }
 

@@ -63,8 +63,8 @@ class AdapterPoller : public oltp::RWorker {
       zmq::message_t *msg = new zmq::message_t();
       if(recv_socket->recv(msg,ZMQ_NOBLOCK)) {
         int tid = *((char *)msg->data());
-        int nid = *((char *)msg->data() + sizeof(int));
-        assert(tid >= 0 && tid < local_queues.size());
+        __attribute__((unused)) int nid = *((char *)msg->data() + sizeof(int));
+        assert(tid >= 0 && (uint)tid < local_queues.size());
         local_queues[tid]->enqueue((char *)(&msg),sizeof(zmq::message_t *));
       } // end dispatch one message
     }
@@ -104,7 +104,7 @@ class Adapter : public MsgHandler {
   }
 
   Adapter(msg_func_t callback,int node_id,int thread_id,SingleQueue *q) :
-      callback_(callback),thread_id_(thread_id),queue_(q),node_id_(node_id)
+      node_id_(node_id),thread_id_(thread_id),queue_(q),callback_(callback)
   {
     assert(queue_ != NULL);
   }
@@ -141,11 +141,12 @@ class Adapter : public MsgHandler {
     s->send(m);
     l->unlock();
 #endif
+    return Qp::IO_SUCC;
   }
 
   Qp::IOStatus broadcast_to(int *node_ids, int num_of_node, char *msg,int len) {
 
-    for(uint i = 0;i < num_of_node;++i) {
+    for(int i = 0;i < num_of_node;++i) {
       send_to(node_ids[i],msg,len);
     }
     return Qp::IO_SUCC;
@@ -155,7 +156,7 @@ class Adapter : public MsgHandler {
     return send_to(node_id,tid,msg,len);
   }
 
-  Qp::IOStatus flush_pending() { } // not buffer message for TCP
+  Qp::IOStatus flush_pending() { return Qp::IO_SUCC; } // not buffer message for TCP
 
   int  get_num_nodes() {
 #if DEDICATED

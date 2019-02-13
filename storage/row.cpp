@@ -232,7 +232,7 @@ RC row_t::get_row(access_t type, TxnManager * txn, row_t *& row) {
 		row = this;
 	} else if (rc == Abort) {} 
 	else if (rc == WAIT) {
-		ASSERT(CC_ALG == WAIT_DIE);
+		assert(CC_ALG == WAIT_DIE);
 
 	}
 	goto end;

@@ -291,7 +291,7 @@ RC Row_lock::lock_release(TxnManager * txn) {
           en = waiters_head;
           while (en != NULL && en->txn != txn)
               en = en->next;
-          ASSERT(en);
+          assert(en);
 
           LIST_REMOVE(en);
           if (en == waiters_head)
@@ -304,7 +304,7 @@ RC Row_lock::lock_release(TxnManager * txn) {
 #endif
 
       if (owner_cnt == 0)
-          ASSERT(lock_type == LOCK_NONE);
+          assert(lock_type == LOCK_NONE);
 #if DEBUG_ASSERT && CC_ALG == WAIT_DIE 
       for (en = waiters_head; en != NULL && en->next != NULL; en = en->next)
         assert(en->next->txn->get_timestamp() < en->txn->get_timestamp());
@@ -336,7 +336,7 @@ RC Row_lock::lock_release(TxnManager * txn) {
           if(entry->txn->get_timestamp() > max_owner_ts) {
               max_owner_ts = entry->txn->get_timestamp();
           }
-          ASSERT(entry->txn->lock_ready == false);
+          assert(entry->txn->lock_ready == false);
       //if(entry->txn->decr_lr() == 0 && entry->txn->locking_done) {
           if(entry->txn->decr_lr() == 0) {
               if(ATOM_CAS(entry->txn->lock_ready,false,true)) {

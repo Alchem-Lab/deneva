@@ -1,4 +1,4 @@
-#include "tx_config.h"
+#include "config.h"
 
 #include <utility> // for forward
 
@@ -133,6 +133,7 @@ uint64_t TXOpBase::rpc_op(int cid,int rpc_id,int pid,
   // send the RPC
   rpc_->prepare_multi_req(res_buf,1,cid);
   rpc_->append_req(req_buf,rpc_id,sizeof(REQ),cid,RRpc::REQ,pid);
+  return 0;
 }
 
 

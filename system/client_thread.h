@@ -20,14 +20,27 @@
 #include "global.h"
 
 class Workload;
-
+#if USE_RDMA == 1
+#include "rdmaio.h"
 class ClientThread : public Thread {
 public:
-	RC 			run();
+  ClientThread(int worker_id, rdmaio::RdmaCtrl *cm, int seed = 0) : Thread(worker_id, cm, seed) {}
+  void run();
+  void setup();
+  void register_callbacks() {}
+  void worker_routine(yield_func_t &yield) {}
+private:
+  uint64_t last_send_time;
+  uint64_t send_interval;
+};
+#else
+class ClientThread : public Thread {
+public:
+	void run();
   void setup();
 private:
   uint64_t last_send_time;
   uint64_t send_interval;
 };
-
+#endif
 #endif

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tx_config.h"
+#include "config.h"
 
 #include "global_vars.h"
 
@@ -49,7 +49,7 @@ class DefaultLogCleaner : public LogCleaner {
       assert(store != NULL);
 
       MemNode *node = store->stores_[item->tableid]->GetWithInsert((uint64_t)(item->key));
-      char *new_val;
+      __attribute__((unused)) char *new_val;
       if(item->len == 0) {
         /* a delete case */
         new_val = NULL;

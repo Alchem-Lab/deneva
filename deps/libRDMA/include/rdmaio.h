@@ -183,11 +183,13 @@ class Qp {
     IOStatus rc_post_batch(struct ibv_send_wr *send_sr,ibv_send_wr **bad_sr_addr,int doorbell_num = 0) {
         auto rc = (IOStatus)ibv_post_send(qp,send_sr,bad_sr_addr);
         assert(rc == 0);
+        return Qp::IO_SUCC;
     }
 
     IOStatus rc_post_pending_batch(struct ibv_send_wr *send_sr,ibv_send_wr **bad_sr_addr,int doorbell_num) {
         auto rc = (IOStatus)ibv_post_send(qp,send_sr,bad_sr_addr);
         assert(rc == 0);
+        return Qp::IO_SUCC;
     }
 
 

@@ -11,7 +11,7 @@ extern __thread MappedLog local_log;
 
 namespace rtx {
 
-OCC::OCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int response_node) :
+ROCC::ROCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int response_node) :
     TXOpBase(worker,db,rpc_handler,response_node),
     read_batch_helper_(rpc_->get_static_buf(MAX_MSG_SIZE),reply_buf_),
     write_batch_helper_(rpc_->get_static_buf(MAX_MSG_SIZE),reply_buf_),
@@ -20,7 +20,7 @@ OCC::OCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int r
     cor_id_(cid),response_node_(nid)
 {
   if(worker_id_ == 0 && cor_id_ == 0)
-    LOG(3) << "Baseline OCC.";
+    LOG(3) << "Baseline ROCC.";
   register_default_rpc_handlers();
   memset(reply_buf_,0,MAX_MSG_SIZE);
 
@@ -29,7 +29,7 @@ OCC::OCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int r
   write_set_.reserve(12);
 }
 
-void OCC::begin(yield_func_t &yield) {
+void ROCC::begin(yield_func_t &yield) {
 
   abort_ = false;
   read_set_.clear();
@@ -38,7 +38,7 @@ void OCC::begin(yield_func_t &yield) {
   start_batch_read();
 }
 
-bool OCC::commit(yield_func_t &yield) {
+bool ROCC::commit(yield_func_t &yield) {
   // only execution phase
 #if TX_ONLY_EXE
   gc_readset();
@@ -71,7 +71,7 @@ ABORT:
   return false;
 }
 
-int OCC::local_read(int tableid,uint64_t key,int len,yield_func_t &yield) {
+int ROCC::local_read(int tableid,uint64_t key,int len,yield_func_t &yield) {
 
   char *temp_val = (char *)malloc(len);
   uint64_t seq;
@@ -88,7 +88,7 @@ int OCC::local_read(int tableid,uint64_t key,int len,yield_func_t &yield) {
   return idx;
 }
 
-int OCC::local_insert(int tableid,uint64_t key,char *val,int len,yield_func_t &yield) {
+int ROCC::local_insert(int tableid,uint64_t key,char *val,int len,yield_func_t &yield) {
   char *data_ptr = (char *)malloc(len);
   uint64_t seq;
   auto node = local_insert_op(tableid,key,seq);
@@ -97,23 +97,23 @@ int OCC::local_insert(int tableid,uint64_t key,char *val,int len,yield_func_t &y
   return write_set_.size() - 1;
 }
 
-int OCC::remote_read(int pid,int tableid,uint64_t key,int len,yield_func_t &yield) {
+int ROCC::remote_read(int pid,int tableid,uint64_t key,int len,yield_func_t &yield) {
   return add_batch_read(tableid,key,pid,len);
 }
 
-int OCC::remote_insert(int pid,int tableid,uint64_t key,int len,yield_func_t &yield) {
+int ROCC::remote_insert(int pid,int tableid,uint64_t key,int len,yield_func_t &yield) {
   return add_batch_insert(tableid,key,pid,len);
 }
 
 // helper function's impl
 
-void OCC::start_batch_read() {
+void ROCC::start_batch_read() {
   start_batch_rpc_op(read_batch_helper_);
 }
 
 // helper functions to add batch operations
 
-int OCC::add_batch_read(int tableid,uint64_t key,int pid,int len) {
+int ROCC::add_batch_read(int tableid,uint64_t key,int pid,int len) {
   // add a batch read request
   int idx = read_set_.size();
   add_batch_entry<RTXReadItem>(read_batch_helper_,pid,
@@ -123,7 +123,7 @@ int OCC::add_batch_read(int tableid,uint64_t key,int pid,int len) {
 }
 
 
-int OCC::add_batch_insert(int tableid,uint64_t key,int pid,int len) {
+int ROCC::add_batch_insert(int tableid,uint64_t key,int pid,int len) {
   // add a batch read request
   int idx = read_set_.size();
   add_batch_entry<RTXReadItem>(read_batch_helper_,pid,
@@ -132,7 +132,7 @@ int OCC::add_batch_insert(int tableid,uint64_t key,int pid,int len) {
   return idx;
 }
 
-int OCC::add_batch_write(int tableid,uint64_t key,int pid,int len) {
+int ROCC::add_batch_write(int tableid,uint64_t key,int pid,int len) {
   // add a batch read request
   int idx = read_set_.size();
   add_batch_entry<RTXReadItem>(read_batch_helper_,pid,
@@ -142,11 +142,11 @@ int OCC::add_batch_write(int tableid,uint64_t key,int pid,int len) {
 }
 
 
-int OCC::send_batch_read(int idx) {
+int ROCC::send_batch_read(int idx) {
   return send_batch_rpc_op(read_batch_helper_,cor_id_,RTX_READ_RPC_ID);
 }
 
-bool OCC::parse_batch_result(int num) {
+bool ROCC::parse_batch_result(int num) {
 
   char *ptr  = reply_buf_;
   for(uint i = 0;i < num;++i) {
@@ -164,7 +164,7 @@ bool OCC::parse_batch_result(int num) {
   return true;
 }
 
-void OCC::prepare_write_contents() {
+void ROCC::prepare_write_contents() {
 
   // Notice that it should contain local records
   // This function has to be called after lock + validation success
@@ -179,7 +179,7 @@ void OCC::prepare_write_contents() {
   }
 }
 
-void OCC::write_back(yield_func_t &yield) {
+void ROCC::write_back(yield_func_t &yield) {
 
   // write back local records
   int written_items = 0;
@@ -205,7 +205,7 @@ void OCC::write_back(yield_func_t &yield) {
 #endif
 }
 
-void OCC::write_back_oneshot(yield_func_t &yield) {
+void ROCC::write_back_oneshot(yield_func_t &yield) {
 
   char *cur_ptr = write_batch_helper_.req_buf_;
   START(commit);
@@ -236,7 +236,7 @@ void OCC::write_back_oneshot(yield_func_t &yield) {
   END(commit);
 }
 
-bool OCC::release_writes(yield_func_t &yield) {
+bool ROCC::release_writes(yield_func_t &yield) {
   start_batch_rpc_op(write_batch_helper_);
   for(auto it = write_set_.begin();it != write_set_.end();++it) {
     if((*it).pid != node_id_) { // remote case
@@ -251,7 +251,7 @@ bool OCC::release_writes(yield_func_t &yield) {
   worker_->indirect_yield(yield);
 }
 
-void OCC::log_remote(yield_func_t &yield) {
+void ROCC::log_remote(yield_func_t &yield) {
 
   if(write_set_.size() > 0 && global_view->rep_factor_ > 0) {
 
@@ -294,7 +294,7 @@ void OCC::log_remote(yield_func_t &yield) {
 
 
 
-bool OCC::validate_reads(yield_func_t &yield) {
+bool ROCC::validate_reads(yield_func_t &yield) {
 
   start_batch_rpc_op(read_batch_helper_);
 
@@ -324,7 +324,7 @@ bool OCC::validate_reads(yield_func_t &yield) {
   return true;
 }
 
-bool OCC::lock_writes(yield_func_t &yield) {
+bool ROCC::lock_writes(yield_func_t &yield) {
 
   START(lock);
   start_batch_rpc_op(write_batch_helper_);
@@ -364,7 +364,7 @@ bool OCC::lock_writes(yield_func_t &yield) {
 }
 
 /* RPC handlers */
-void OCC::read_rpc_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::read_rpc_handler(int id,int cid,char *msg,void *arg) {
   char* reply_msg = rpc_->get_reply_buf();
   char *reply = reply_msg + sizeof(ReplyHeader);
   int num_returned(0);
@@ -427,7 +427,7 @@ void OCC::read_rpc_handler(int id,int cid,char *msg,void *arg) {
   // send reply
 }
 
-void OCC::lock_rpc_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::lock_rpc_handler(int id,int cid,char *msg,void *arg) {
 
   char* reply_msg = rpc_->get_reply_buf();
   uint8_t res = LOCK_SUCCESS_MAGIC; // success
@@ -461,7 +461,7 @@ void OCC::lock_rpc_handler(int id,int cid,char *msg,void *arg) {
   rpc_->send_reply(reply_msg,sizeof(uint8_t),id,cid);
 }
 
-void OCC::release_rpc_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::release_rpc_handler(int id,int cid,char *msg,void *arg) {
 
   RTX_ITER_ITEM(msg,sizeof(RtxLockItem)) {
     auto item = (RtxLockItem *)ttptr;
@@ -477,7 +477,7 @@ void OCC::release_rpc_handler(int id,int cid,char *msg,void *arg) {
 }
 
 
-void OCC::commit_rpc_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::commit_rpc_handler(int id,int cid,char *msg,void *arg) {
 
   RTX_ITER_ITEM(msg,sizeof(RtxWriteItem)) {
 
@@ -496,7 +496,7 @@ void OCC::commit_rpc_handler(int id,int cid,char *msg,void *arg) {
 #endif
 }
 
-void OCC::validate_rpc_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::validate_rpc_handler(int id,int cid,char *msg,void *arg) {
 
   char* reply_msg = rpc_->get_reply_buf();
   uint8_t res = LOCK_SUCCESS_MAGIC; // success
@@ -518,7 +518,7 @@ void OCC::validate_rpc_handler(int id,int cid,char *msg,void *arg) {
   rpc_->send_reply(reply_msg,sizeof(uint8_t),id,cid);
 }
 
-void OCC::commit_oneshot_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::commit_oneshot_handler(int id,int cid,char *msg,void *arg) {
 
   CommitItem *item = (CommitItem *)msg;
   inplace_write_op(item->tableid,item->key,msg + sizeof(CommitItem),item->len);
@@ -528,7 +528,7 @@ void OCC::commit_oneshot_handler(int id,int cid,char *msg,void *arg) {
 #endif
 }
 
-void OCC::backup_get_handler(int id,int cid,char *msg,void *arg) {
+void ROCC::backup_get_handler(int id,int cid,char *msg,void *arg) {
 
   ReadItem *item = (ReadItem *)msg;
   ASSERT(global_view->is_backup(response_node_,item->pid));
@@ -545,16 +545,16 @@ void OCC::backup_get_handler(int id,int cid,char *msg,void *arg) {
   rpc_->send_reply(reply_buf,store->_schemas[item->tableid].vlen,id,cid);
 }
 
-void OCC::register_default_rpc_handlers() {
+void ROCC::register_default_rpc_handlers() {
   // register rpc handlers
-  ROCC_BIND_STUB(rpc_,&OCC::read_rpc_handler,this,RTX_READ_RPC_ID);
-  ROCC_BIND_STUB(rpc_,&OCC::lock_rpc_handler,this,RTX_LOCK_RPC_ID);
-  ROCC_BIND_STUB(rpc_,&OCC::release_rpc_handler,this,RTX_RELEASE_RPC_ID);
-  //ROCC_BIND_STUB(rpc_,&OCC::commit_rpc_handler,this,RTX_COMMIT_RPC_ID);
-  ROCC_BIND_STUB(rpc_,&OCC::commit_oneshot_handler,this,RTX_COMMIT_RPC_ID);
-  ROCC_BIND_STUB(rpc_,&OCC::validate_rpc_handler,this,RTX_VAL_RPC_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::read_rpc_handler,this,RTX_READ_RPC_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::lock_rpc_handler,this,RTX_LOCK_RPC_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::release_rpc_handler,this,RTX_RELEASE_RPC_ID);
+  //ROCC_BIND_STUB(rpc_,&ROCC::commit_rpc_handler,this,RTX_COMMIT_RPC_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::commit_oneshot_handler,this,RTX_COMMIT_RPC_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::validate_rpc_handler,this,RTX_VAL_RPC_ID);
 
-  ROCC_BIND_STUB(rpc_,&OCC::backup_get_handler,this,RTX_BACKUP_GET_ID);
+  ROCC_BIND_STUB(rpc_,&ROCC::backup_get_handler,this,RTX_BACKUP_GET_ID);
 }
 
 

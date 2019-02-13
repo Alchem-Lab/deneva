@@ -18,6 +18,7 @@
 #include "manager.h"
 #include "thread.h"
 #include "worker_thread.h"
+#include "transport.h"
 #include "txn.h"
 #include "wl.h"
 #include "query.h"
@@ -180,7 +181,7 @@ TxnManager * WorkerThread::get_transaction_manager(Message * msg) {
   return local_txn_man;
 }
 
-RC WorkerThread::run() {
+void WorkerThread::run() {
   tsetup();
   printf("Running WorkerThread %ld\n",_thd_id);
 
@@ -271,7 +272,8 @@ RC WorkerThread::run() {
 	}
   printf("FINISH %ld:%ld\n",_node_id,_thd_id);
   fflush(stdout);
-  return FINISH;
+  
+  return;
 }
 
 RC WorkerThread::process_rfin(Message * msg) {

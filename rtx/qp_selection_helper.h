@@ -37,7 +37,7 @@ void fill_qp_vec(rdmaio::RdmaCtrl *cm,int wid) {
   assert(qp_vec_.size() == 0);
   // get rc qps
   auto num_nodes = cm->get_num_nodes();
-  for(uint i = 0;i < num_nodes;++i) {
+  for(auto i = 0;i < num_nodes;++i) {
     for(uint j = 0;j < QP_NUMS; j++){
       rdmaio::Qp *qp = cm->get_rc_qp(wid,i,j);
       assert(qp != NULL);

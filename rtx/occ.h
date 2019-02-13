@@ -21,21 +21,21 @@ using namespace oltp;
 namespace rtx {
 
 class RdmaChecker;
-class OCC : public TXOpBase {
+class ROCC : public TXOpBase {
 #include "occ_internal_structure.h"
  public:
   // nid: local node id. If == -1, all operations go through the network
   // resposne_node == nid: enable local accesses.
   // response_node == -1, all local operations go through network
-  OCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int response_node);
+  ROCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int cid,int response_node);
 
   // provide a hook to init RDMA based contents, using TXOpBase
-  OCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int tid,int cid,int response_node,
+  ROCC(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int tid,int cid,int response_node,
       RdmaCtrl *cm,RScheduler *sched,int ms):
       TXOpBase(worker,db,rpc_handler,cm,sched,response_node,tid,ms),// response_node shall always equal *real node id*
+      read_set_(),write_set_(),
       read_batch_helper_(rpc_->get_static_buf(MAX_MSG_SIZE),reply_buf_),
       write_batch_helper_(rpc_->get_static_buf(MAX_MSG_SIZE),reply_buf_),
-      read_set_(),write_set_(),
       cor_id_(cid),response_node_(nid)
   {
 
@@ -79,7 +79,7 @@ class OCC : public TXOpBase {
   int insert(int pid,uint64_t key,V *val,yield_func_t &yield);
 
   // add a specific item in read-set to writeset
-  int     add_to_write(int idx);
+  int     add_to_write(uint idx);
   int     add_to_write();
 
   virtual int      local_read(int tableid,uint64_t key,int len,yield_func_t &yield);
@@ -144,7 +144,7 @@ class OCC : public TXOpBase {
 
   friend RdmaChecker;
 
-  DISABLE_COPY_AND_ASSIGN(OCC);
+  DISABLE_COPY_AND_ASSIGN(ROCC);
 
  public:
   // some counting

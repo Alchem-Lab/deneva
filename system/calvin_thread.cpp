@@ -37,7 +37,7 @@
 void CalvinLockThread::setup() {
 }
 
-RC CalvinLockThread::run() {
+void CalvinLockThread::run() {
     tsetup();
 
     RC rc = RCOK;
@@ -96,7 +96,7 @@ RC CalvinLockThread::run() {
     }
     printf("FINISH %ld:%ld\n",_node_id,_thd_id);
     fflush(stdout);
-    return FINISH;
+    return;
 }
 
 void CalvinSequencerThread::setup() {
@@ -107,7 +107,7 @@ bool CalvinSequencerThread::is_batch_ready() {
     return ready;
 }
 
-RC CalvinSequencerThread::run() {
+void CalvinSequencerThread::run() {
     tsetup();
 
     Message * msg;
@@ -165,6 +165,5 @@ RC CalvinSequencerThread::run() {
     }
     printf("FINISH %ld:%ld\n",_node_id,_thd_id);
     fflush(stdout);
-    return FINISH;
-
+    return;
 }

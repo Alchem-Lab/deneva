@@ -16,9 +16,9 @@ class LogMemManager {
   LogMemManager(char *local_p,int ms,int ts,int size,int entry_size = RTX_LOG_ENTRY_SIZE,uint64_t base_off = 0) :
       mac_num_(ms),
       thread_num_(ts),
+      thread_buf_size_(size + RTX_LOG_ENTRY_SIZE),
       local_buffer_(local_p),
       log_entry_size_(RTX_LOG_ENTRY_SIZE),
-      thread_buf_size_(size + RTX_LOG_ENTRY_SIZE),
       base_offset_(base_off)
   {
     //LOG(3) << "add " << ms << " " << ts << " " << size;
@@ -29,7 +29,7 @@ class LogMemManager {
     remote_tailers_ = new uint64_t[mac_num_];
     local_headers_  = new uint64_t[mac_num_];
 
-    for(uint i = 0;i < mac_num_;++i) {
+    for(auto i = 0;i < mac_num_;++i) {
       remote_tailers_[i] = 0;
       local_headers_[i]  = 0;
     }
@@ -57,7 +57,7 @@ class LogMemManager {
   }
 
   inline uint64_t get_previous_remote_offset(int from_mac,int from_tid,int to_mid,int log_size) {
-    ASSERT(remote_tailers_[to_mid] >= log_size) << "tail " << (uint64_t)(remote_tailers_[to_mid])
+    ASSERT(remote_tailers_[to_mid] >= (uint64_t)log_size) << "tail " << (uint64_t)(remote_tailers_[to_mid])
                                                 << ";log size " << log_size;
     auto tail = remote_tailers_[to_mid] - log_size;
     uint64_t base_offset = from_tid * thread_buf_size_ + from_mac * total_mac_log_size_ +

@@ -27,7 +27,7 @@ struct RTXReadItem {
   uint16_t idx;
   uint16_t len;
   inline RTXReadItem(req_type_t type,uint8_t pid,uint64_t key,uint8_t tableid,uint16_t len,uint8_t idx)
-      :type(type),pid(pid),key(key),tableid(tableid),len(len),idx(idx)
+      :type(type),pid(pid),key(key),tableid(tableid),idx(idx),len(len)
   {
   }
 } __attribute__ ((aligned (8)));

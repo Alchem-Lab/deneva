@@ -10,27 +10,32 @@ RDMA=./deps/libRDMA/
 
 .SUFFIXES: .o .cpp .h
 
-SRC_DIRS = ./ ./benchmarks/ ./client/ ./concurrency_control/ ./storage/ ./transport/ ./system/ ./statistics/#./unit_tests/
+SRC_DIRS = ./ ./benchmarks/ ./client/ ./concurrency_control/ ./storage/ ./transport/ ./system/  ./core/utils/ ./core/ ./rtx/ ./statistics/ ./util/ #./unit_tests/
 DEPS = -I. -I./benchmarks -I./client/ -I./concurrency_control -I./storage -I./transport -I./system -I./statistics -I$(BOOST)/include -I$(JEMALLOC)/include -I$(NNMSG)/include -I$(RDMA)/include #-I./unit_tests 
 
-CFLAGS += $(DEPS) -D NOGRAPHITE=1 -Werror -Wno-sizeof-pointer-memaccess
+CFLAGS += $(DEPS) -D NOGRAPHITE=1 -Werror -Wno-sizeof-pointer-memaccess -DLEVELDB_PLATFORM_POSIX -pthread -DOS_LINUX -mrtm
 LDFLAGS = -Wall -L. -L$(BOOST)/lib -L$(NNMSG)/lib64 -L$(JEMALLOC)/lib -L$(RDMA)/lib -Wl,-rpath,$(JEMALLOC)/lib -Wl,-rpath,$(RDMA)/lib -Wl,-rpath,$(NNMSG)/lib64 -pthread -gdwarf-3 -rdynamic -lrdma -lssmalloc -lrt -std=c++0x
 #LDFLAGS = -Wall -L. -L$(NNMSG) -L$(JEMALLOC)/lib -Wl,-rpath,$(JEMALLOC)/lib -pthread -gdwarf-3 -lrt -std=c++11
 LDFLAGS += $(CFLAGS)
-LIBS =-lrt -libverbs -lnanomsg -lanl -ljemalloc -ldl
+LIBS =-lrt -libverbs -lnanomsg -lanl -ljemalloc -ldl -lboost_coroutine -lboost_chrono -lboost_thread -lboost_context -lboost_system -lzmq
 
 DB_MAINS = ./client/client_main.cpp ./system/sequencer_main.cpp ./unit_tests/unit_main.cpp
 CL_MAINS = ./system/main.cpp ./system/sequencer_main.cpp ./unit_tests/unit_main.cpp
 UNIT_MAINS = ./system/main.cpp ./client/client_main.cpp ./system/sequencer_main.cpp
 
-CPPS_DB = $(foreach dir,$(SRC_DIRS),$(filter-out $(DB_MAINS), $(wildcard $(dir)*.cpp))) 
-CPPS_CL = $(foreach dir,$(SRC_DIRS),$(filter-out $(CL_MAINS), $(wildcard $(dir)*.cpp))) 
-CPPS_UNIT = $(foreach dir,$(SRC_DIRS),$(filter-out $(UNIT_MAINS), $(wildcard $(dir)*.cpp))) 
+CPPS_DB = $(foreach dir,$(SRC_DIRS),$(filter-out $(DB_MAINS), $(wildcard $(dir)*.cpp)))
+CCS_DB = $(foreach dir,$(SRC_DIRS),$(filter-out $(DB_MAINS), $(wildcard $(dir)*.cc)))
+
+CPPS_CL = $(foreach dir,$(SRC_DIRS),$(filter-out $(CL_MAINS), $(wildcard $(dir)*.cpp)))
+CCS_CL = $(foreach dir,$(SRC_DIRS),$(filter-out $(CL_MAINS), $(wildcard $(dir)*.cc)))
+
+CPPS_UNIT = $(foreach dir,$(SRC_DIRS),$(filter-out $(UNIT_MAINS), $(wildcard $(dir)*.cpp)))
+CCS_UNIT = $(foreach dir,$(SRC_DIRS),$(filter-out $(UNIT_MAINS), $(wildcard $(dir)*.cc)))
 
 #CPPS = $(wildcard *.cpp)
-OBJS_DB = $(addprefix obj/, $(notdir $(CPPS_DB:.cpp=.o)))
-OBJS_CL = $(addprefix obj/, $(notdir $(CPPS_CL:.cpp=.o)))
-OBJS_UNIT = $(addprefix obj/, $(notdir $(CPPS_UNIT:.cpp=.o)))
+OBJS_DB = $(addprefix obj/, $(notdir $(CPPS_DB:.cpp=.o)) $(notdir $(CCS_DB:.cc=.o)))
+OBJS_CL = $(addprefix obj/, $(notdir $(CPPS_CL:.cpp=.o)) $(notdir $(CCS_CL:.cc=.o)))
+OBJS_UNIT = $(addprefix obj/, $(notdir $(CPPS_UNIT:.cpp=.o)) $(CCS_UNIT:.cc=.o)))
 
 #NOGRAPHITE=1
 
@@ -62,6 +67,14 @@ unit_test :  $(OBJS_UNIT)
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: client/%.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: rtx/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/utils/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: util/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: %.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 
@@ -86,6 +99,14 @@ rundb : $(OBJS_DB)
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: client/%.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: rtx/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/utils/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: util/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: %.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 
@@ -109,6 +130,14 @@ runcl : $(OBJS_CL)
 ./obj/%.o: concurrency_control/%.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: client/%.cpp
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: rtx/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/utils/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: core/%.cc
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
+./obj/%.o: util/%.cc
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: %.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<

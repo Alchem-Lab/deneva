@@ -1,6 +1,4 @@
-#include "rocc_config.h"
-#include "tx_config.h"
-
+#include "config.h"
 #include "util/util.h"
 #include "util/mapped_log.h"
 
@@ -144,14 +142,14 @@ void RWorker::init_routines(int coroutines) {
   routines_         = new coroutine_func_t[1 + coroutines];
   random_generator  = new util::fast_random[1 + coroutines];
 
-  for(uint i = 0;i < 1 + coroutines;++i){
+  for(int i = 0;i < 1 + coroutines;++i){
     random_generator[i].set_seed0(rand_generator_.next());
   }
 
   routines_[0] = coroutine_func_t(bind(&RWorker::new_master_routine,this, _1, 0));
 
   // bind specific worker_routine
-  for(uint i = 1;i <= coroutines;++i) {
+  for(int i = 1;i <= coroutines;++i) {
     routines_[i] = coroutine_func_t(bind(&RWorker::worker_routine,this, _1));
   }
 
@@ -229,7 +227,7 @@ void RWorker::create_rdma_ud_connections(int total_connections) {
   LOG(2) << "YYY";
   rpc_->set_msg_handler(msg_handler_);
 
-  server_type_ == UD_MSG;
+  server_type_ = UD_MSG;
 }
 
 void RWorker::create_tcp_connections(util::SingleQueue *queue, int tcp_port, zmq::context_t &context) {

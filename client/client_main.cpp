@@ -122,14 +122,37 @@ int main(int argc, char* argv[])
   uint64_t all_thd_cnt = thd_cnt + rthd_cnt + sthd_cnt;
   assert(all_thd_cnt == g_this_total_thread_cnt);
 
-	pthread_t * p_thds = 
-		(pthread_t *) malloc(sizeof(pthread_t) * (all_thd_cnt));
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
+#if USE_RDMA == 1
+    uint64_t id = 0;
+    
+    void* raw_memory = operator new[](cthd_cnt * sizeof(ClientThread));
+    client_thds = static_cast<ClientThread*>(raw_memory);
+    for (uint64_t i = 0; i < cthd_cnt; i++) {
+      new (&client_thds[i])ClientThread(id++, tport_man.rdmaCtrl);
+      client_thds[i].init(g_node_id, m_wl);
+    }
+    raw_memory = operator new[](rthd_cnt * sizeof(InputThread));
+    input_thds = static_cast<InputThread*>(raw_memory);
+    for (uint64_t i = 0; i < rthd_cnt; i++) {
+      new (&input_thds[i])InputThread(id++, tport_man.rdmaCtrl);
+      input_thds[i].init(g_node_id, m_wl);
+    }
+    raw_memory = operator new[](sthd_cnt * sizeof(OutputThread));
+    output_thds = static_cast<OutputThread*>(raw_memory);
+    for (uint64_t i = 0; i < sthd_cnt; i++) {
+      new (&output_thds[i])OutputThread(id++, tport_man.rdmaCtrl);
+      output_thds[i].init(g_node_id, m_wl);
+    }
+#else
+  pthread_t * p_thds = 
+    (pthread_t *) malloc(sizeof(pthread_t) * (all_thd_cnt));
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
 
   client_thds = new ClientThread[cthd_cnt];
   input_thds = new InputThread[rthd_cnt];
   output_thds = new OutputThread[sthd_cnt];
+#endif
 	//// query_queue should be the last one to be initialized!!!
 	// because it collects txn latency
   printf("Initializing message queue... ");
@@ -151,11 +174,34 @@ int main(int argc, char* argv[])
 	warmup_done = true;
 	pthread_barrier_init( &warmup_bar, NULL, all_thd_cnt);
 
-	uint64_t cpu_cnt = 0;
-	cpu_set_t cpus;
 	// spawn and run txns again.
 	starttime = get_server_clock();
   simulation->run_starttime = starttime;
+
+#if USE_RDMA == 1
+  vector<Thread*> threads;
+  for (uint64_t i = 0; i < thd_cnt; i++) {
+      threads.push_back(&client_thds[i]);
+  }
+  for (uint64_t j = 0; j < rthd_cnt ; j++) {
+      threads.push_back(&input_thds[j]);
+  }
+  for (uint64_t j = 0; j < sthd_cnt; j++) {
+      threads.push_back(&output_thds[j]);
+  }
+
+  for (vector<Thread *>::const_iterator it = threads.begin();
+       it != threads.end(); ++it) {
+      (*it)->start();
+  }
+  sleep(1);
+
+  for(auto it = threads.begin();it != threads.end();++it) {
+    (*it)->join();
+  }
+#else
+  uint64_t cpu_cnt = 0;
+  cpu_set_t cpus;
 
   uint64_t id = 0;
 	for (uint64_t i = 0; i < thd_cnt; i++) {
@@ -184,6 +230,8 @@ int main(int argc, char* argv[])
   }
 	for (uint64_t i = 0; i < all_thd_cnt; i++) 
 		pthread_join(p_thds[i], NULL);
+
+#endif
 
 	endtime = get_server_clock();
 	

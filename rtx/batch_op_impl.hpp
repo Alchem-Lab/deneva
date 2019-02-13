@@ -15,9 +15,9 @@ struct BatchOpCtrlBlock {
   int batch_size_;
 
   inline BatchOpCtrlBlock(char *req_buf,char *res_buf) :
-      batch_size_(0),
       req_buf_(req_buf),
-      reply_buf_(res_buf)
+      reply_buf_(res_buf),
+      batch_size_(0)
   {
     clear();
   }

@@ -6,7 +6,7 @@ namespace rtx {
 
 class RTXIterator {
  public:
-  RTXIterator(OCC *tx,int tableid,bool sec = false):
+  RTXIterator(ROCC *tx,int tableid,bool sec = false):
       tx_(tx){
     if(sec) {
       iter_ = (tx_->db_->_indexs[tableid])->GetIterator();
@@ -34,7 +34,7 @@ class RTXIterator {
   }
 
   void next() {
-    bool r = iter_->Next();
+    __attribute__((unused)) bool r = iter_->Next();
 
     while(iter_->Valid()) {
       cur_ = iter_->CurNode();
@@ -88,7 +88,7 @@ class RTXIterator {
   }
 
  private:
-  OCC *tx_;
+  ROCC *tx_;
   Memstore::Iterator *iter_;
 
   MemNode* cur_ = NULL;

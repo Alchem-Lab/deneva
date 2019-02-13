@@ -18,6 +18,7 @@ done
 #run the distributed DBMS
 for HOSTNAME in ${HOSTS}; do
   if [ "$count" -ge "$NODE_CNT" ]; then
+<<<<<<< Updated upstream
 	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ../runcl -nid${count} > ${count}.out 2>&1"
     echo "${HOSTNAME}: runcl -nid${count}"
   else
@@ -34,4 +35,4 @@ while [ $count -gt 0 ]; do
 	count=`expr $count - 1`
 done
 
-scancel -u $USER
+scancel -u $USERNAME

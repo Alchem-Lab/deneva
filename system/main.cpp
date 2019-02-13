@@ -197,7 +197,7 @@ int main(int argc, char* argv[])
 	uint64_t wthd_cnt = thd_cnt;
 	uint64_t rthd_cnt = g_rem_thread_cnt;
 	uint64_t sthd_cnt = g_send_thread_cnt;
-    uint64_t all_thd_cnt = thd_cnt + rthd_cnt + sthd_cnt + g_abort_thread_cnt;
+  uint64_t all_thd_cnt = thd_cnt + rthd_cnt + sthd_cnt + g_abort_thread_cnt;
 #if LOGGING
     all_thd_cnt += 1; // logger thread
 #endif
@@ -205,33 +205,67 @@ int main(int argc, char* argv[])
     all_thd_cnt += 2; // sequencer + scheduler thread
 #endif
     assert(all_thd_cnt == g_this_total_thread_cnt);
-	
+
+#if USE_RDMA == 1
+    uint64_t id = 0;
+
+    void* raw_memory = operator new[](wthd_cnt * sizeof(WorkerThread));
+    worker_thds = static_cast<WorkerThread*>(raw_memory);
+    for (uint64_t i = 0; i < wthd_cnt; i++) {
+      new (&worker_thds[i])WorkerThread(id++, tport_man.rdmaCtrl);
+      worker_thds[i].init(g_node_id,m_wl);
+    }
+
+    raw_memory = operator new[](rthd_cnt * sizeof(InputThread));
+    input_thds = static_cast<InputThread*>(raw_memory);
+    for (uint64_t i = 0; i < rthd_cnt; i++) {
+      new (&input_thds[i])InputThread(id++, tport_man.rdmaCtrl);
+      input_thds[i].init(g_node_id,m_wl);
+    }
+
+    raw_memory = operator new[](sthd_cnt * sizeof(OutputThread));
+    output_thds = static_cast<OutputThread*>(raw_memory);
+    for (uint64_t i = 0; i < sthd_cnt; i++) {
+      new (&output_thds[i])OutputThread(id++, tport_man.rdmaCtrl);
+      output_thds[i].init(g_node_id,m_wl);      
+    }
+
+    raw_memory = operator new[](sizeof(AbortThread));
+    abort_thds = static_cast<AbortThread*>(raw_memory);
+    new (&abort_thds[0])AbortThread(id++, tport_man.rdmaCtrl);
+    abort_thds[0].init(g_node_id,m_wl);      
+
+    raw_memory = operator new[](sizeof(LogThread));
+    log_thds = static_cast<LogThread*>(raw_memory);
+    new (&log_thds[0])LogThread(id++, tport_man.rdmaCtrl);
+    log_thds[0].init(g_node_id,m_wl);
+
+#if CC_ALG == CALVIN
+    raw_memory = operator new[](sizeof(CalvinLockThread));
+    calvin_lock_thds = static_cast<CalvinLockThread*>(raw_memory);
+    new (&calvin_lock_thds[0])CalvinLockThread(id++, tport_man.rdmaCtrl);
+    calvin_lock_thds[0].init(g_node_id,m_wl);    
+
+    raw_memory = operator new[](sizeof(CalvinSequencerThread));
+    calvin_seq_thds = static_cast<CalvinSequencerThread*>(raw_memory);
+    new (&calvin_seq_thds[0])CalvinSequencerThread(id++, tport_man.rdmaCtrl);
+    calvin_seq_thds[0].init(g_node_id,m_wl);  
+#endif
+#else
     pthread_t * p_thds =
     (pthread_t *) malloc(sizeof(pthread_t) * (all_thd_cnt));
     pthread_attr_t attr;
     pthread_attr_init(&attr);
 
     worker_thds = new WorkerThread[wthd_cnt];
-#if USE_RDMA
-    void* raw_memory = operator new[](rthd_cnt * sizeof(InputThread));
-    input_thds = static_cast<InputThread*>(raw_memory);
-    for (uint64_t i = 0; i < rthd_cnt; i++) {
-      new (&input_thds[i])InputThread(tport_man.rdmaCtrl);
-    }
-    raw_memory = operator new[](sthd_cnt * sizeof(OutputThread));
-    output_thds = static_cast<OutputThread*>(raw_memory);
-    for (uint64_t i = 0; i < sthd_cnt; i++) {
-      new (&output_thds[i])OutputThread(tport_man.rdmaCtrl);
-    }
-#else
     input_thds = new InputThread[rthd_cnt];
     output_thds = new OutputThread[sthd_cnt];
-#endif
     abort_thds = new AbortThread[1];
     log_thds = new LogThread[1];
 #if CC_ALG == CALVIN
     calvin_lock_thds = new CalvinLockThread[1];
     calvin_seq_thds = new CalvinSequencerThread[1];
+#endif
 #endif
 	// query_queue should be the last one to be initialized!!!
 	// because it collects txn latency
@@ -259,14 +293,47 @@ int main(int argc, char* argv[])
     warmup_done = true;
     pthread_barrier_init( &warmup_bar, NULL, all_thd_cnt);
 
+  // spawn and run txns again.
+  starttime = get_server_clock();
+  simulation->run_starttime = starttime;
+#if USE_RDMA == 1
+  vector<Thread*> threads;
+  for (uint64_t i = 0; i < wthd_cnt; i++) {
+      threads.push_back(&worker_thds[i]);
+  }
+  for (uint64_t j = 0; j < rthd_cnt ; j++) {
+      threads.push_back(&input_thds[j]);
+  }
+  for (uint64_t j = 0; j < sthd_cnt; j++) {
+      threads.push_back(&output_thds[j]);
+  }
+#if LOGGING
+  threads.push_back(&log_thds[0]);
+#endif
+#if CC_ALG != CALVIN
+  threads.push_back(&abort_thds[0]);
+#endif
+#if CC_ALG == CALVIN
+  threads.push_back(&calvin_lock_thds[0]);
+  threads.push_back(&calvin_seq_thds[0]);
+#endif
+
+  for (vector<Thread *>::const_iterator it = threads.begin();
+       it != threads.end(); ++it) {
+      (*it)->start();
+  }
+  sleep(1);
+
+  for(auto it = threads.begin();it != threads.end();++it) {
+    (*it)->join();
+  }
+  
+#else  
+
 #if SET_AFFINITY
   uint64_t cpu_cnt = 0;
   cpu_set_t cpus;
 #endif
-  // spawn and run txns again.
-  starttime = get_server_clock();
-  simulation->run_starttime = starttime;
-
   uint64_t id = 0;
   for (uint64_t i = 0; i < wthd_cnt; i++) {
 #if SET_AFFINITY
@@ -285,12 +352,12 @@ int main(int argc, char* argv[])
 	    pthread_create(&p_thds[id++], NULL, run_thread, (void *)&input_thds[j]);
 	}
 
-
 	for (uint64_t j = 0; j < sthd_cnt; j++) {
 	    assert(id >= wthd_cnt + rthd_cnt && id < wthd_cnt + rthd_cnt + sthd_cnt);
 	    output_thds[j].init(id,g_node_id,m_wl);
 	    pthread_create(&p_thds[id++], NULL, run_thread, (void *)&output_thds[j]);
 	  }
+    
 #if LOGGING
     log_thds[0].init(id,g_node_id,m_wl);
     pthread_create(&p_thds[id++], NULL, run_thread, (void *)&log_thds[0]);
@@ -325,6 +392,8 @@ int main(int argc, char* argv[])
 
 	for (uint64_t i = 0; i < all_thd_cnt ; i++) 
 		pthread_join(p_thds[i], NULL);
+
+#endif // USE_RDMA
 
 	endtime = get_server_clock();
 	

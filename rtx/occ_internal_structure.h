@@ -15,22 +15,22 @@ struct ReadSetItem {
 
   inline ReadSetItem(int tableid,uint64_t key,MemNode *node,char *data_ptr,uint64_t seq,int len,int pid):
       tableid(tableid),
+      len(len),
       key(key),
       node(node),
       data_ptr(data_ptr),
       seq(seq),
-      len(len),
       pid(pid)
   {
   }
 
   inline ReadSetItem(const ReadSetItem &item) :
       tableid(item.tableid),
+      len(item.len),
       key(item.key),
       node(item.node),
       data_ptr(item.data_ptr),
       seq(item.seq),
-      len(item.len),
       pid(item.pid)
   {
   }

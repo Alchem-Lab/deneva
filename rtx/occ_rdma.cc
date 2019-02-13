@@ -81,7 +81,7 @@ bool OCCR::lock_writes_w_rdma(yield_func_t &yield) {
 
 void OCCR::release_writes_w_rdma(yield_func_t &yield) {
   // can only work with lock_w_rdma
-  uint64_t lock_content =  ENCODE_LOCK_CONTENT(response_node_,worker_id_,cor_id_ + 1);
+  __attribute__((unused)) uint64_t lock_content =  ENCODE_LOCK_CONTENT(response_node_,worker_id_,cor_id_ + 1);
 
   for(auto it = write_set_.begin();it != write_set_.end();++it) {
     if((*it).pid != node_id_) {
@@ -234,7 +234,7 @@ void OCCR::release_rpc_handler2(int id,int cid,char *msg,void *arg) {
     auto node = local_lookup_op(item->tableid,item->key);
     assert(node != NULL && node->value != NULL);
 
-    RdmaValHeader *header = (RdmaValHeader *)(node->value);
+    __attribute__((unused)) RdmaValHeader *header = (RdmaValHeader *)(node->value);
     volatile uint64_t *lockptr = (volatile uint64_t *)lockptr;
     !__sync_bool_compare_and_swap(lockptr,ENCODE_LOCK_CONTENT(id,worker_id_,cid + 1),0);
   }

@@ -32,8 +32,8 @@ class TXOpBase {
 
   // allow op implementation based on RPC
   TXOpBase(RWorker *w,MemDB *db,RRpc *rpc_handler,int nid):
-      worker_(w),
       db_(db),
+      worker_(w),
       rpc_(rpc_handler),
       node_id_(nid),
       worker_id_(rpc_handler->worker_id_) {
@@ -46,9 +46,9 @@ class TXOpBase {
       int nid, // my node id
       int tid, // worker thread's id
       int ms)  // total macs in the cluster setting
-      :worker_(w),
-       db_(db),
-       cm_(cm),scheduler_(rdma_sched),node_id_(nid),worker_id_(tid),rpc_(rpc_handler),qp_vec_() {
+      :db_(db),
+       worker_(w),
+       rpc_(rpc_handler),cm_(cm),scheduler_(rdma_sched),qp_vec_(),node_id_(nid),worker_id_(tid) {
     // fetch QPs
     fill_qp_vec(cm,worker_id_);
   }

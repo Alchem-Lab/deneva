@@ -9,7 +9,7 @@ namespace nocc {
 
 namespace oltp {
 
-RRpc::RRpc(int tid,int coroutines,int req_buf_num,int reply_buf_num)
+RRpc::RRpc(int tid,uint coroutines,uint req_buf_num,uint reply_buf_num)
     : worker_id_(tid),
       reply_buf_slot_(0)
 {
@@ -51,7 +51,7 @@ bool RRpc::poll_comp_callback(char *msg,int from,int from_t) {
     // normal rpcs
     try {
       callbacks_[header->meta.rpc_id](from,header->meta.cid,msg + sizeof(rrpc_header),
-                                      (void *)(header->meta.payload));
+                                      reinterpret_cast<void *>(header->meta.payload));
       processed_rpc_ += 1;
     } catch (...) {
       LOG(7) << "rpc called failed at " << worker_id_ << ";With rpc id "

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tx_config.h"
+#include "config.h"
 
 #include "occ.h"
 #include "core/logging.h"
@@ -12,13 +12,13 @@ namespace nocc {
 namespace rtx {
 
 /**
- * Extend baseline OCC with one-sided RDMA support for execution, validation and commit.
+ * Extend baseline ROCC with one-sided RDMA support for execution, validation and commit.
  */
-class OCCR : public OCC {
+class OCCR : public ROCC {
  public:
   OCCR(oltp::RWorker *worker,MemDB *db,RRpc *rpc_handler,int nid,int tid,int cid,int response_node,
           RdmaCtrl *cm,RScheduler* rdma_sched,int ms) :
-      OCC(worker,db,rpc_handler,nid,tid,cid,response_node,
+      ROCC(worker,db,rpc_handler,nid,tid,cid,response_node,
              cm,rdma_sched,ms)
   {
     if(worker_id_ == 0 && cor_id_ == 0) {

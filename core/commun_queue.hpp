@@ -16,7 +16,7 @@ namespace nocc {
 
       void enqueue(char *msg,int size) {
 
-        if((buf_size - (tailer - header)) < size) {
+        if((buf_size - (int)(tailer - header)) < size) {
           return;
         }
         char *buf_ptr = cycle_buf + tailer % buf_size;
@@ -53,7 +53,7 @@ namespace nocc {
     class CommQueue {
       const int buf_size = 20480;
     public:
-      CommQueue(int threads) {
+      CommQueue(uint threads) {
         for(uint i = 0;i < threads;++i) {
           cycle_bufs.push_back(new char[buf_size + 64]);
           headers.push_back(0);

@@ -8,7 +8,7 @@ namespace rtx  {
 
 class RdmaChecker {
  public:
-  static bool check_lock_content(OCC *c,yield_func_t &yield) {
+  static bool check_lock_content(ROCC *c,yield_func_t &yield) {
 
     char *lbuffer = (char *)Rmalloc(256);
 
@@ -32,7 +32,7 @@ class RdmaChecker {
         ASSERT(h->lock == 0) << " current lock content " << (uint64_t)(h->lock);
         ASSERT(h->seq == it->seq) << " header's seq " << h->seq << "; buffered seq " << it->seq;
         ASSERT(h->seq == ch->seq)  << " header's seq " << h->seq << "; checker's seq " << ch->seq;
-        ASSERT(ch->lock == ENCODE_LOCK_CONTENT(c->response_node_,c->worker_id_,c->cor_id_ + 1))
+        ASSERT((int64_t)ch->lock == ENCODE_LOCK_CONTENT(c->response_node_,c->worker_id_,c->cor_id_ + 1))
             <<" check header's lock "<< ch->lock;
       }
     }
@@ -41,7 +41,7 @@ class RdmaChecker {
     return true;
   }
 
-  static bool check_log_content(OCC *c,yield_func_t &yield) {
+  static bool check_log_content(ROCC *c,yield_func_t &yield) {
 
     char *lbuffer = (char *)Rmalloc(4096);
     BatchOpCtrlBlock &b = c->write_batch_helper_;
@@ -81,10 +81,10 @@ class RdmaChecker {
     return true;
   }
 
-  static bool check_backup_content(OCC *c,yield_func_t &yield) {
+  static bool check_backup_content(ROCC *c,yield_func_t &yield) {
 
     // this buffer can be reused, since ReadItem is very small, so it can be inlined
-    OCC::ReadItem *item = (OCC::ReadItem *)(c->rpc_->get_static_buf(sizeof(OCC::ReadItem)));
+    ROCC::ReadItem *item = (ROCC::ReadItem *)(c->rpc_->get_static_buf(sizeof(ROCC::ReadItem)));
 
     for(auto it = c->write_set_.begin();it != c->write_set_.end();++it) {
 
@@ -103,7 +103,7 @@ class RdmaChecker {
 
         // send a RPC to request backup's key
         c->rpc_->prepare_multi_req(reply_buf,1,c->cor_id_);
-        c->rpc_->append_req((char *)item,RTX_BACKUP_GET_ID,sizeof(OCC::ReadItem),c->cor_id_,
+        c->rpc_->append_req((char *)item,RTX_BACKUP_GET_ID,sizeof(ROCC::ReadItem),c->cor_id_,
                             RRpc::REQ,*it1);
         INDIRECT_YIELD(yield);
         int n = memcmp(reply_buf,it->data_ptr,it->len);

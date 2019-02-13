@@ -18,7 +18,7 @@
 #define _IOTHREAD_H_
 
 #include "global.h"
-#if USE_RDMA
+#if USE_RDMA == 1
 #include "rdmaio.h"
 #include "msg_handler.h"
 #endif
@@ -26,54 +26,54 @@
 class Workload;
 class MessageThread;
 
-#ifdef USE_RDMA
-class RDMAController : public Thread {
-protected:
-  RDMAController(rdmaio::RdmaCtrl* ctrl) {cm_ = ctrl;}
-  /* used by InputThread */
-  bool poll_comp_callback(char *msg,int nid,int tid);
-  /* used by both InputThread and OutputThread */
-  void setup_rdma();
-  void create_qps();
-  void create_rdma_rc_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
-  void create_rdma_ud_connections(int total_connections);
-protected:
-  rdmaio::MsgHandler * msg_handler_ = NULL;
-  rdmaio::RdmaCtrl* cm_ = NULL;
-};
-
-class InputThread : public RDMAController {
+#if USE_RDMA == 1
+class InputThread : public Thread {
 public:
-  InputThread(rdmaio::RdmaCtrl* ctrl) : RDMAController(ctrl) {}
-	RC 			run();
+  InputThread(int worker_id, rdmaio::RdmaCtrl *cm, int seed = 0) : Thread(worker_id, cm, seed) {}
+	void run();
+  void setup();
+  void register_callbacks() {}
+  void worker_routine(yield_func_t &yield) {}
+  
   RC  client_recv_loop();
   RC  server_recv_loop();
   void  check_for_init_done();
-  void setup();
+
+  MsgHandler *recv_msg_handler_ = NULL;  // communication between servers
+  void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
+  void create_rdma_ud_raw_connections(int total_connections);
+  bool poll_comp_callback(char *msg,int from_nid,int from_tid);
 };
 
-class OutputThread : public RDMAController {
+class OutputThread : public Thread {
 public:
-  OutputThread(rdmaio::RdmaCtrl* ctrl) : RDMAController(ctrl) {} 
-	RC 			run();
+  OutputThread(int worker_id, rdmaio::RdmaCtrl *cm, int seed = 0) : Thread(worker_id, cm, seed) {}
+	void run();
   void setup();
+  void register_callbacks() {}
+  void worker_routine(yield_func_t &yield) {}
   MessageThread * messager;
+
+  MsgHandler *send_msg_handler_ = NULL;  // communication between servers
+  void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
+  void create_rdma_ud_raw_connections(int total_connections);
+  bool poll_comp_callback(char *msg,int from_nid,int from_tid);
 };
 
 #else
 
 class InputThread : public Thread {
 public:
-  RC      run();
+  void run();
+  void setup();
   RC  client_recv_loop();
   RC  server_recv_loop();
   void  check_for_init_done();
-  void setup();
 };
 
 class OutputThread : public Thread {
 public:
-  RC      run();
+  void run();
   void setup();
   MessageThread * messager;
 };

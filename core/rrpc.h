@@ -4,7 +4,7 @@
 #include "common.h"
 
 #include "all.h"
-#include "framework/config.h" // to be fixed later!
+#include "config.h"
 #include "msg_handler.h"
 
 #include "ralloc.h" // RDMA malloc
@@ -50,7 +50,7 @@ class RRpc {
 #endif
   }  __attribute__ ((aligned (sizeof(uint64_t))));
 
-  RRpc(int tid, int cs, int req_buf_num = MAX_INFLIGHT_REQS, int reply_buf_num = MAX_INFLIGHT_REPLY);
+  RRpc(int tid, uint cs, uint req_buf_num = MAX_INFLIGHT_REQS, uint reply_buf_num = MAX_INFLIGHT_REPLY);
 
   inline bool has_pending_reqs(int cid) {
     return pending_reqs(cid) != 0;

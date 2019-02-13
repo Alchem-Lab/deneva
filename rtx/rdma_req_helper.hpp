@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/rdma_sched.h"
-#include "tx_config.h"
+#include "config.h"
 
 namespace nocc {
 
