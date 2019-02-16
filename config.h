@@ -6,22 +6,22 @@
 // RDMA related parameters
 /***********************************************/
 #define USE_RDMA 1
+
+#define USE_UD_MSG 0
+#define USE_RC_MSG 1
+#define USE_TCP_MSG 0
+
 #define HUGE_PAGE  1
 #define RBUF_SIZE_M 10240 // default size: 10G
 #define MAX_MSG_SIZE 4096
 #define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
+#define SINGLE_MR  0
+#define BUF_SIZE   10480 // RDMA buffer size registered, in a small setting
+//#define BUF_SIZE 512
 
 #define QP_NUMS 1
 
 #define MASTER_EPOCH 25// runtime of test
-
-// rdma related stuffs
-#define HUGE_PAGE  1
-#define USE_UD_MSG 0
-#define USE_TCP_MSG 0
-#define SINGLE_MR  0
-#define BUF_SIZE   10480 // RDMA buffer size registered, in a small setting
-//#define BUF_SIZE 512
 
 // rpc related stuffs
 //#define RPC_TIMEOUT_FLAG
@@ -43,6 +43,22 @@
 
 #if USE_TCP_MSG == 1
 #undef  USE_UD_MSG
+#define USE_UD_MSG 0
+#undef USE_RC_MSG
+#define USE_RC_MSG 0
+#endif
+
+#if USE_UD_MSG == 1
+#undef USE_TCP_MSG
+#define USE_TCP_MSG 0
+#undef USE_RC_MSG
+#define USE_RC_MSG 0
+#endif
+
+#if USE_RC_MSG == 1
+#undef USE_TCP_MSG
+#define USE_TCP_MSG 0
+#undef USE_UD_MSG
 #define USE_UD_MSG 0
 #endif
 
@@ -70,6 +86,8 @@
 #define REM_THREAD_CNT THREAD_CNT
 #define SEND_THREAD_CNT THREAD_CNT
 #define CORE_CNT 8
+#define COROUTINE_CNT 1
+
 // PART_CNT should be at least NODE_CNT
 #define PART_CNT NODE_CNT
 #define CLIENT_NODE_CNT 1

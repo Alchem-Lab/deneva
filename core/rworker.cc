@@ -93,13 +93,16 @@ int RWorker::choose_rnic_port() {
 
 void RWorker::init_rdma() {
 
-  if(!USE_RDMA) // avoids calling cm on other networks
+  if(!USE_RDMA) {// avoids calling cm on other networks
+    LOG(1) << "warning: init_rdma failed due to USE_RDMA == 0.";
     return;
+  }
 
+  LOG(1) << "TTTTTT";
   cm_->thread_local_init();
   choose_rnic_port();
 
-  
+  LOG(1) << "SSSSS";
   // get the device id and port id used on the nic.
 
   int dev_id = cm_->get_active_dev(use_port_);
@@ -115,6 +118,7 @@ void RWorker::init_rdma() {
 void RWorker::create_qps(int num) {
 
   if(!USE_RDMA) {
+    LOG(1) << "warning: not created any qps due to USE_RDMA == 0.";
     return;
   }
 

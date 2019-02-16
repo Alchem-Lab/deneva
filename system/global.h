@@ -151,6 +151,8 @@ extern UInt32 g_abort_thread_cnt;
 extern UInt32 g_logger_thread_cnt;
 extern UInt32 g_send_thread_cnt;
 extern UInt32 g_rem_thread_cnt;
+extern UInt32 g_coroutine_cnt;
+
 extern ts_t g_abort_penalty; 
 extern ts_t g_abort_penalty_max; 
 extern bool g_central_man;

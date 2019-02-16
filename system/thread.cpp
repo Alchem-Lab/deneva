@@ -74,9 +74,12 @@ void Thread::tRDMAsetup() {
   BindToCore(worker_id_); // really specified to platforms
   init_routines(server_routine);
 
+  DEBUG("init_routines done.\n");
   init_rdma();
+  DEBUG("init_rdma done.\n");  
   create_qps();
-
+  DEBUG("create_qps done\n");
+  
 #if USE_UD_MSG == 1
   type = UD_MSG;
   int total_connections = 1;
@@ -88,23 +91,24 @@ void Thread::tRDMAsetup() {
 
   this->thread_local_init();   // application specific init
   register_callbacks();
+
 }
 #endif
 
 void Thread::tsetup() {
-	printf("Setup %ld:%ld\n",_node_id, _thd_id);
-  fflush(stdout);
-	pthread_barrier_wait( &warmup_bar );
-  setup();
-	printf("Running %ld:%ld\n",_node_id, _thd_id);
+	printf("%ld:%ld Setup\n",_node_id, _thd_id);
   fflush(stdout);
 	pthread_barrier_wait( &warmup_bar );
 #if USE_RDMA == 1
   tRDMAsetup();
-  printf("Running %ld:%ld RDMA setup\n",_node_id, _thd_id);
+  printf("%ld:%ld RDMA setup done.\n",_node_id, _thd_id);
   fflush(stdout);
   pthread_barrier_wait( &warmup_bar );  
 #endif
+  setup();
+	printf("All setup done. Running %ld:%ld\n",_node_id, _thd_id);
+  fflush(stdout);
+	pthread_barrier_wait( &warmup_bar );
 #if TIME_ENABLE
   run_starttime = get_sys_clock();
 #else

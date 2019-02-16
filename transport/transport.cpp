@@ -22,8 +22,9 @@
 #include "query.h"
 #include "message.h"
 
-#if USE_RDMA
+#if USE_RDMA == 1
 #include "ring_imm_msg.h"
+#include "ralloc.h"
 #endif
 
 #define MAX_IFADDR_LEN 20 // max # of characters in name of address
@@ -275,22 +276,46 @@ void Transport::initRDMA() {
 
   int tcp_port = 383839;
   rdma_buffer = (char *)malloc_huge_pages(r_buffer_size, HUGE_PAGE_SZ, HUGE_PAGE);
-  
+  assert(rdma_buffer != NULL);
+
   // start creating RDMA
   rdmaCtrl = new rdmaio::RdmaCtrl(g_node_id, net_def_, tcp_port, false);
   rdmaCtrl->set_connect_mr(rdma_buffer, r_buffer_size); // register the buffer
-
   rdmaCtrl->query_devinfo();
-  rdmaCtrl->start_server(); // listening server for receive QP connection requests
+  memset(rdma_buffer,0,r_buffer_size);
+
+  uint64_t M2 = HUGE_PAGE_SZ;
+  uint64_t total_sz = 0;
 
   // Calculating message size
+  uint64_t ring_area_sz = 0;
+#if USE_RC_MSG == 1
   using namespace rdmaio::ring_imm_msg;
   ring_padding = MAX_MSG_SIZE;
-  total_ring_sz = (2 * MAX_MSG_SIZE + 2 * 4096)  + ring_padding + MSG_META_SZ; // used for applications
+  total_ring_sz = g_coroutine_cnt * (2 * MAX_MSG_SIZE + 2 * 4096)  + ring_padding + MSG_META_SZ; // used for applications
   assert(total_ring_sz < r_buffer_size);
+
   ringsz = total_ring_sz - ring_padding - MSG_META_SZ;
-  uint64_t ring_area_sz = (total_ring_sz * g_total_node_cnt) * (g_rem_thread_cnt + g_send_thread_cnt);
-  cout << "[Mem] Total msg buf area: " << get_memory_size_g(ring_area_sz) << "G.";  
+
+  ring_area_sz = total_ring_sz * net_def_.size() * (g_this_total_thread_cnt + 1);
+  DEBUG("[Mem] Total msg buf area: %lfG.\n", get_memory_size_g(ring_area_sz));
+#elif USE_UD_MSG == 1
+#elif USE_TCP_MSG == 1
+#else
+  assert(false);
+#endif
+  total_sz += ring_area_sz + M2;
+  assert(r_buffer_size > total_sz);
+
+  // Init rmalloc
+  free_buffer = rdma_buffer + total_sz; // use the free buffer as the local RDMA heap
+  uint64_t real_alloced = RInit(free_buffer, r_buffer_size - total_sz);
+  assert(real_alloced != 0);
+  DEBUG("[Mem] RDMA heap size: %lfG.\n", get_memory_size_g(real_alloced));
+
+  RThreadLocalInit();
+
+  rdmaCtrl->start_server(); // listening server for receive QP connection requests
 }
 
 void Transport::shutdownRDMA() {

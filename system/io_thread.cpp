@@ -34,8 +34,6 @@
 #if USE_RDMA
 #include "ring_msg.h"
 #include "ud_msg.h"
-// default the rmda device port to use as 1.
-uint use_port_ = 1;
 #endif
 
 void InputThread::setup() {

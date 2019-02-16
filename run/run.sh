@@ -21,7 +21,7 @@ for HOSTNAME in ${HOSTS}; do
 	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ./runcl -nid${count} > ${count}.out 2>&1"
     echo "${HOSTNAME}: runcl -nid${count}"
   else
-	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ./rundb -nid${count} > ${count}.out"
+	  SCRIPT="cd ~/git_repos/deneva/ && timeout -k 5m 5m ./rundb -nid${count} > ${count}.out 2>&1"
     echo "${HOSTNAME}: rundb -nid${count}"
   fi
 	ssh -n -o BatchMode=yes -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}" &

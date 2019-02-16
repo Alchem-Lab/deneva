@@ -79,6 +79,7 @@ class Transport {
 #if USE_RDMA
     rdmaio::RdmaCtrl* rdmaCtrl = NULL;
     char* rdma_buffer = NULL;
+    char* free_buffer = NULL;
     std::map<uint64_t, rdmaio::MsgHandler*> msg_handlers; // send_thread_id : msg_handler
     std::map<uint64_t, char*> recv_buffers;
 

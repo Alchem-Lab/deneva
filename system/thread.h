@@ -42,7 +42,7 @@ public:
     Workload * _wl;
     myrand rdm;
     uint64_t run_starttime;
-    int server_routine = 10;
+    int server_routine = g_coroutine_cnt;
 
     uint64_t    get_thd_id();
     uint64_t    get_node_id();
@@ -60,7 +60,12 @@ public:
     virtual void exit_handler() {}
     virtual void change_ctx(int cor_id) {}
     virtual void thread_local_init() {};
-
+    virtual int choose_rnic_port() {
+        int total_devices = cm_->query_devinfo();
+        assert(total_devices > 0);
+        use_port_ = 0;
+        return use_port_;
+    }
 private:
   uint64_t prog_time;
   uint64_t heartbeat_time;

@@ -4,13 +4,15 @@
 #define RDMA_IO
 
 #include <infiniband/verbs.h>
-#include <boost/unordered_map.hpp>
+// #include <boost/unordered_map.hpp>
 
 #include <vector>
 #include <string>
 #include <mutex>
 #include <map>
 #include <unordered_map>
+#include <set>
+#include <assert.h>
 
 #include "rdma_header.h"
 #include "simple_map.h"

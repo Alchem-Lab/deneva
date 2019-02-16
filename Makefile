@@ -1,6 +1,6 @@
 #CC=g++
 CC=c++
-CFLAGS=-Wall -g -gdwarf-3 -std=c++0x 
+CFLAGS=-Wall -Werror -Wno-sizeof-pointer-memaccess -O0 -g -gdwarf-3 -std=c++0x -pthread -mrtm
 #CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 ROCC_ROOT=$(HOME)/git_repos/rocc/
 ZMQ=$(HOME)/install/zeromq-4.2.3/
@@ -15,8 +15,8 @@ RDMA=./deps/libRDMA/
 SRC_DIRS = ./ ./benchmarks/ ./client/ ./concurrency_control/ ./storage/ ./transport/ ./system/  ./core/utils/ ./core/ ./rtx/ ./statistics/ ./util/ #./unit_tests/
 DEPS = -I. -I./benchmarks -I./client/ -I./concurrency_control -I./storage -I./transport -I./system -I./statistics -I$(BOOST)/include -I$(ZMQ)/include -I$(JEMALLOC)/include -I$(NNMSG)/include -I$(RDMA)/include #-I./unit_tests 
 
-CFLAGS += $(DEPS) -std=c++0x -Wall -Werror -Wno-sizeof-pointer-memaccess -DNOGRAPHITE=1 -DLEVELDB_PLATFORM_POSIX -DOS_LINUX -pthread -mrtm
-LDFLAGS = -L. -L$(BOOST)/lib -L$(ZMQ)/lib -L$(NNMSG)/lib64 -L$(JEMALLOC)/lib -L$(RDMA)/lib -Wl,-rpath,$(ZMQ)/lib -Wl,-rpath,$(JEMALLOC)/lib -Wl,-rpath,$(RDMA)/lib -Wl,-rpath,$(NNMSG)/lib64 -gdwarf-3 -rdynamic 
+CFLAGS += $(DEPS) -DNOGRAPHITE=1 -DLEVELDB_PLATFORM_POSIX -DOS_LINUX
+LDFLAGS = -L. -L$(BOOST)/lib -L$(ZMQ)/lib -L$(NNMSG)/lib64 -L$(JEMALLOC)/lib -L$(RDMA)/lib -Wl,-rpath,$(ZMQ)/lib -Wl,-rpath,$(JEMALLOC)/lib -Wl,-rpath,$(RDMA)/lib -Wl,-rpath,$(NNMSG)/lib64 -rdynamic 
 LDFLAGS += $(CFLAGS)
 
 BOOSTLIBS=$(BOOST)/lib/libboost_coroutine.a $(BOOST)/lib/libboost_chrono.a $(BOOST)/lib/libboost_thread.a $(BOOST)/lib/libboost_context.a $(BOOST)/lib/libboost_system.a
