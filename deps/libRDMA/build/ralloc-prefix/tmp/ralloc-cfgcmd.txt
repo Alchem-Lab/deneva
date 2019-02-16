@@ -1,1 +1,0 @@
-cmd='mkdir;-p;/home/chao/git_repos/deneva/deps/libRDMA/lib'

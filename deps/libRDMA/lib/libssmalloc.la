@@ -38,4 +38,4 @@ dlopen=''
 dlpreopen=''
 
 # Directory that this library needs to be installed in:
-libdir='/home/chao/git_repos/deneva/libRDMA/lib'
+libdir='/home/chao/git_repos/deneva/deps/libRDMA/lib'

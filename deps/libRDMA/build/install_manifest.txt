@@ -1,1 +1,0 @@
-/home/chao/git_repos/deneva/deps/libRDMA/build/../lib/librdma.a

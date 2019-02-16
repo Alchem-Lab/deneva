@@ -34,6 +34,7 @@ bool Qp::connect_rc() {
 	//socket.send(request);
 
 	// prepare socket to remote
+	fprintf(stderr, "%d:%d get_send_socket: %s:%d\n", nid, tid, network[nid].c_str(), tcp_base_port);
 	auto socket = PreConnector::get_send_socket(network[nid],tcp_base_port);
 	if(socket < 0) {
 		// cannot establish the connection, shall retry
