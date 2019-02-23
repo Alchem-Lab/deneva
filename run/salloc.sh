@@ -1,0 +1,27 @@
+#！/bin/bash
+
+HOST_CNT=1
+if [ x$1 != "x" ];then
+	HOST_CNT=$1
+fi
+
+IFCONFIG_PATH="../ifconfig.txt"
+if [ -f ${IFCONFIG_PATH} ]; then
+  rm -fr ${IFCONFIG_PATH}
+fi
+
+if [ x$2 != "x" ];then
+	salloc -N $1 -t 00:60:00 --nodelist=$2
+	echo $2 | sed 's/,/\n/g' >> ${IFCONFIG_PATH}
+else
+	LAST_HOST=16
+	FIRST_HOST=`echo $LAST_HOST - $HOST_CNT + 1 | bc`
+	HOSTS_CSV=`seq -s, -f"nerv%.0f" $LAST_HOST -1 $FIRST_HOST`
+	HOSTS=`seq -f"nerv%.0f" $LAST_HOST -1 $FIRST_HOST`
+
+	for HOSTNAME in ${HOSTS}; do
+	#  grep "\b${HOSTNAME}\b" /etc/hosts | awk '{print $1}' >> ${IFCONFIG_PATH}
+	  echo ${HOSTNAME}  >> ${IFCONFIG_PATH}
+	done
+	salloc -N $1 -t 00:60:00 --nodelist=$HOSTS_CSV
+fi

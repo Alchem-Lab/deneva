@@ -6,5 +6,6 @@ figs*
 rundb
 runcl
 run/slurm.hosts
-*.out
+**/*.out
 obj/
+**/build
