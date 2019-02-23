@@ -1,8 +1,8 @@
 #!/bin/bash
 
-if [ $1 == "" -o $2 == "" ]; then
-	echo "please provide SERVER_CNT and NODE_IDX!"
-	exit;
+if [ x$1 == "x" -o x$2 == "x" ]; then
+	echo "./run_node.sh SERVER_CNT NODE_IDX [gdb]"
+	exit
 fi
 
 SERVER_CNT=$1

@@ -7,4 +7,8 @@ if [ x$1 == 'x' -o x$2 == 'x' ]; then
 	exit
 fi
 
-salloc -N $1 -t 00:05:00 ./run.sh $2
+if [ x$3 == 'x' ]; then
+    salloc -N $1 -t 00:05:00 ./run.sh $2
+else
+    salloc -N $1 -t 00:05:00 --nodelist=$3 ./run.sh $2 
+fi
