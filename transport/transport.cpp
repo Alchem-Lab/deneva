@@ -22,25 +22,57 @@
 #include "query.h"
 #include "message.h"
 
+#include <netdb.h> //hostent
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/time.h>
+
 #if USE_RDMA == 1
 #include "ring_imm_msg.h"
 #include "ralloc.h"
+#include "util/util.h"
 #endif
 
 #define MAX_IFADDR_LEN 20 // max # of characters in name of address
 
-void Transport::read_ifconfig(const char * ifaddr_file) {
+__thread rdmaio::MsgHandler* Transport::msg_handler = NULL;
+__thread char* Transport::recv_buffers = NULL;
 
+std::string Transport::host_to_ip(const std::string &host) {
+    std::string res = "";
+
+    struct addrinfo hints, *infoptr;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET; // AF_INET means IPv4 only addresses
+
+    int result = getaddrinfo(host.c_str(), NULL, &hints, &infoptr);
+    if (result) {
+      fprintf(stderr, "getaddrinfo: %s at %s\n", gai_strerror(result),host.c_str());
+      return "";
+    }
+    char ip[64]; memset(ip,0,sizeof(ip));
+
+    for(struct addrinfo *p = infoptr; p != NULL; p = p->ai_next) {
+      getnameinfo(p->ai_addr, p->ai_addrlen, ip, sizeof(ip), NULL, 0, NI_NUMERICHOST);
+    }
+
+    return string(ip);
+}
+
+void Transport::read_ifconfig(const char * ifaddr_file) {
 	ifaddr = new char *[g_total_node_cnt];
+  hosts = new char *[g_total_node_cnt];
 
 	uint64_t cnt = 0;
   printf("Reading ifconfig file: %s\n",ifaddr_file);
 	ifstream fin(ifaddr_file);
 	string line;
   while (getline(fin, line)) {
-		//memcpy(ifaddr[cnt],&line[0],12);
-		ifaddr[cnt] = new char[line.length()+1];
-    strcpy(ifaddr[cnt],&line[0]);
+    hosts[cnt] = new char[line.length()+1];
+    strcpy(hosts[cnt], line.c_str());
+    std::string ip = host_to_ip(line);
+		ifaddr[cnt] = new char[ip.length()+1];
+    strcpy(ifaddr[cnt],ip.c_str());
 		printf("%ld: %s\n",cnt,ifaddr[cnt]);
 		cnt++;
 	}
@@ -221,61 +253,29 @@ void Transport::init() {
   }
 
 	fflush(stdout);
-#if USE_RDMA
+#if USE_RDMA == 1
   printf("Tport RDMA Init %d.\n",g_node_id);
   initRDMA();
 #endif 
 }
 
 void Transport::shutdown() {
-#if USE_RDMA
+#if USE_RDMA == 1
   shutdownRDMA();
 #endif
 }
 
-#if USE_RDMA
-void* malloc_huge_pages(size_t size, uint64_t huge_page_sz, bool flag) {
-  printf("malloc_huge_pages: size = %ld huge_page_sz = %ld, flag = %d", size, huge_page_sz, flag);
-
-  char *ptr; // the return value
-#define ALIGN_TO_PAGE_SIZE(x)  (((x) + huge_page_sz - 1) / huge_page_sz * huge_page_sz)
-  size_t real_size = ALIGN_TO_PAGE_SIZE(size + huge_page_sz);
-
-  if(flag) {
-    // Use 1 extra page to store allocation metadata
-    // (libhugetlbfs is more efficient in this regard)
-    char *ptr = (char *)mmap(NULL, real_size, PROT_READ | PROT_WRITE,
-                             MAP_PRIVATE | MAP_ANONYMOUS |
-                             MAP_POPULATE | MAP_HUGETLB, -1, 0);
-    if (ptr == MAP_FAILED) {
-      // The mmap() call failed. Try to malloc instead
-      printf("huge page alloc failed!");
-      goto ALLOC_FAILED;
-    } else {
-      printf("huge page real size %lf", (double)(get_memory_size_g(real_size)));
-      // Save real_size since mmunmap() requires a size parameter
-      *((size_t *)ptr) = real_size;
-      // Skip the page with metadata
-      return ptr + huge_page_sz;
-    }
-  }
-ALLOC_FAILED:
-  ptr = (char *)malloc(real_size);
-  if (ptr == NULL) return NULL;
-  real_size = 0;
-  return ptr + huge_page_sz;
-}
-
+#if USE_RDMA == 1
 void Transport::initRDMA() {
   uint64_t M = 1024*1024;
   uint64_t r_buffer_size = M*RBUF_SIZE_M;
 
   std::vector<std::string> net_def_;
   for (unsigned node = 0; node < g_total_node_cnt; node++)
-    net_def_.push_back(std::string(ifaddr[node]));
+    net_def_.push_back(std::string(hosts[node]));
 
-  int tcp_port = 383839;
-  rdma_buffer = (char *)malloc_huge_pages(r_buffer_size, HUGE_PAGE_SZ, HUGE_PAGE);
+  int tcp_port = 8888;
+  rdma_buffer = (char *)nocc::util::malloc_huge_pages(r_buffer_size, HUGE_PAGE_SZ, HUGE_PAGE);
   assert(rdma_buffer != NULL);
 
   // start creating RDMA
@@ -295,10 +295,10 @@ void Transport::initRDMA() {
   total_ring_sz = g_coroutine_cnt * (2 * MAX_MSG_SIZE + 2 * 4096)  + ring_padding + MSG_META_SZ; // used for applications
   assert(total_ring_sz < r_buffer_size);
 
-  ringsz = total_ring_sz - ring_padding - MSG_META_SZ;
+  // ringsz = total_ring_sz - ring_padding - MSG_META_SZ;
 
   ring_area_sz = total_ring_sz * net_def_.size() * (g_this_total_thread_cnt + 1);
-  DEBUG("[Mem] Total msg buf area: %lfG.\n", get_memory_size_g(ring_area_sz));
+  DEBUG("[Mem] Total msg buf area: %lfG.\n", nocc::util::get_memory_size_g(ring_area_sz));
 #elif USE_UD_MSG == 1
 #elif USE_TCP_MSG == 1
 #else
@@ -311,7 +311,7 @@ void Transport::initRDMA() {
   free_buffer = rdma_buffer + total_sz; // use the free buffer as the local RDMA heap
   uint64_t real_alloced = RInit(free_buffer, r_buffer_size - total_sz);
   assert(real_alloced != 0);
-  DEBUG("[Mem] RDMA heap size: %lfG.\n", get_memory_size_g(real_alloced));
+  DEBUG("[Mem] RDMA heap size: %lfG.\n", nocc::util::get_memory_size_g(real_alloced));
 
   RThreadLocalInit();
 
@@ -344,33 +344,31 @@ void Transport::send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * 
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
 
-#if USE_RDMA
-// send msg through RDMA RC connection
-void Transport::send_msg_rc_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
+#if USE_RDMA == 1
+// send msg through RDMA connection
+void Transport::send_msg_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
   uint64_t starttime = get_sys_clock();
-
-  rdmaio::MsgHandler* msg_handler = msg_handlers.find(send_thread_id)->second;
   assert(msg_handler != NULL);
-  msg_handler->send_to(dest_node_id, (char*)sbuf, size);
-  DEBUG("%ld Batch of %d bytes sent to node %ld\n",send_thread_id,size,dest_node_id);
-
+  const int dest_thread_id = 1;
+  msg_handler->send_to(dest_node_id, dest_thread_id, (char*)sbuf, size);
+  DEBUG("%ld Batch of %d bytes sent to node %ld, thread %d\n",send_thread_id,size,dest_node_id, dest_thread_id);
   INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
 
-// send msg through RDMA Ud connection
-void Transport::send_msg_ud_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size) {
+// send msg through RDMA connection
+void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_node_id, uint64_t dest_thread_id, void * sbuf,int size) {
   uint64_t starttime = get_sys_clock();
-
-  rdmaio::MsgHandler* msg_handler = msg_handlers.find(send_thread_id)->second;
   assert(msg_handler != NULL);
-  msg_handler->send_to(dest_node_id, (char*)sbuf, size);
-  DEBUG("%ld Batch of %d bytes sent to node %ld\n",send_thread_id,size,dest_node_id);
-
+  for (int i = 0; i < size; i++) {
+    DEBUG("0x%x ", ((unsigned char*)sbuf)[i]);
+  }
+  DEBUG("\n");
+  msg_handler->send_to(dest_node_id, dest_thread_id, (char*)sbuf, size);
+  DEBUG("%ld Batch of %d bytes sent to node %ld, thread %ld\n",send_thread_id,size,dest_node_id, dest_thread_id);
   INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
-
 #endif
 
 // Listens to sockets for messages from other nodes
@@ -435,18 +433,16 @@ std::vector<Message*> * Transport::recv_msg(uint64_t thd_id) {
   return msgs;
 }
 
-#if USE_RDMA
-std::vector<Message*> * Transport::recv_msg_rc_rdma(uint64_t thd_id) {
+#if USE_RDMA == 1
+std::vector<Message*> * Transport::recv_msg_rdma(uint64_t thd_id) {
   char* buf = NULL;
   uint64_t starttime = get_sys_clock();
+  recv_buffers = NULL;
   std::vector<Message*> * msgs = NULL;
-
-  rdmaio::MsgHandler* msg_handler = msg_handlers.find(thd_id)->second;
   assert(msg_handler != NULL);
-
   if(msg_handler != NULL)
     msg_handler->poll_comps(); // poll rpcs requests/replies
-  buf = recv_buffers[thd_id];
+  buf = recv_buffers;
   if (buf == NULL) {
     INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
     return msgs;    
@@ -456,37 +452,11 @@ std::vector<Message*> * Transport::recv_msg_rc_rdma(uint64_t thd_id) {
   INC_STATS(thd_id,msg_recv_cnt,1);
   starttime = get_sys_clock();
 
-  msgs = Message::create_messages(buf);
+  msgs = Message::create_messages(buf+sizeof(uint32_t));
   DEBUG("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,simulation->seconds_from_start(get_sys_clock()));
   INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
-  recv_buffers[thd_id] = NULL;
-  return msgs;
-}
-
-std::vector<Message*> * Transport::recv_msg_ud_rdma(uint64_t thd_id) {
-  char* buf = NULL;
-  uint64_t starttime = get_sys_clock();
-  std::vector<Message*> * msgs = NULL;
-
-  rdmaio::MsgHandler* msg_handler = msg_handlers.find(thd_id)->second;
-  assert(msg_handler != NULL);
-
-  if(msg_handler != NULL)
-    msg_handler->poll_comps(); // poll rpcs requests/replies
-  buf = recv_buffers[thd_id];
-  if (buf == NULL) {
-    INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
-    return msgs;    
-  }
-
-  INC_STATS(thd_id,msg_recv_time, get_sys_clock() - starttime);
-  INC_STATS(thd_id,msg_recv_cnt,1);
-  starttime = get_sys_clock();
-
-  msgs = Message::create_messages(buf);
-  DEBUG("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,simulation->seconds_from_start(get_sys_clock()));
-  INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
-  recv_buffers[thd_id] = NULL;
+  mem_allocator.free(recv_buffers, *(uint32_t*)recv_buffers);
+  recv_buffers = NULL;
   return msgs;
 }
 #endif

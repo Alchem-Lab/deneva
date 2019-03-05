@@ -35,12 +35,10 @@
 #include "maat.h"
 
 void WorkerThread::setup() {
-
 	if( get_thd_id() == 0) {
     send_init_done_to_all_nodes();
   }
   _thd_txn_id = 0;
-
 }
 
 void WorkerThread::process(Message * msg) {

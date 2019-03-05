@@ -25,7 +25,7 @@
 #include "pool.h"
 #include "global.h"
 
-void MessageThread::init(uint64_t thd_id) { 
+void MessageThread::init(uint64_t thd_id, uint64_t recv_thd_id) { 
   buffer_cnt = g_total_node_cnt;
 #if CC_ALG == CALVIN
   buffer_cnt++;
@@ -39,6 +39,7 @@ void MessageThread::init(uint64_t thd_id) {
     buffer[n]->reset(n);
   }
   _thd_id = thd_id;
+  _recv_thd_id = recv_thd_id;
 }
 
 void MessageThread::check_and_send_batches() {
@@ -58,10 +59,11 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
 	  ((uint32_t*)sbuf->buffer)[2] = sbuf->cnt;
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
-    DEBUG("Send batch of %ld msgs to %ld\n",sbuf->cnt,dest_node_id);
-#if USE_RDMA
-    tport_man.send_msg_rc_rdma(_thd_id,dest_node_id,sbuf->buffer,sbuf->ptr);
+#if USE_RDMA == 1
+    DEBUG("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
+    tport_man.send_msg_to_thread_rdma(_thd_id, dest_node_id, _recv_thd_id, sbuf->buffer,sbuf->ptr);
 #else
+    DEBUG("Send batch of %ld msgs to %ld\n",sbuf->cnt,dest_node_id);
     tport_man.send_msg(_thd_id,dest_node_id,sbuf->buffer,sbuf->ptr);
 #endif
 
@@ -120,3 +122,10 @@ void MessageThread::run() {
 
 }
 
+//This method is called to free the resourses allocated on init()
+void MessageThread::fini() {
+  DEBUG_M("MessageThread::fini free mbuf\n");
+  for(uint64_t n = 0; n < buffer_cnt; n++) {
+    buffer[n]->fini();
+  }
+}

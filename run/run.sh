@@ -12,7 +12,8 @@ if [ -f ${IFCONFIG_PATH} ]; then
   rm -fr ${IFCONFIG_PATH}
 fi
 for HOSTNAME in ${HOSTS}; do
-  grep "\b${HOSTNAME}\b" /etc/hosts | awk '{print $1}' >> ${IFCONFIG_PATH}
+#  grep "\b${HOSTNAME}\b" /etc/hosts | awk '{print $1}' >> ${IFCONFIG_PATH}
+  echo ${HOSTNAME}  >> ${IFCONFIG_PATH}
 done
 
 #run the distributed DBMS

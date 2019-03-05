@@ -38,7 +38,7 @@ namespace rdmaio {
       // Return true if one message is received
       bool  try_recv_from(int from_mac,char *buffer);
 
-      virtual void  poll_comps();
+      virtual int  poll_comps();
 
       // if we receive one
       void  ack_msg();

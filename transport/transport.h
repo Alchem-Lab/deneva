@@ -51,6 +51,7 @@ class Socket {
 };
 
 class Transport {
+    std::string host_to_ip(const std::string &host);
 	public:
 		void read_ifconfig(const char * ifaddr_file);
 		void init();
@@ -63,37 +64,34 @@ class Transport {
     Socket * bind(uint64_t port_id); 
     Socket * connect(uint64_t dest_id,uint64_t port_id); 
     void send_msg(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
-#if USE_RDMA
-    void send_msg_rc_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
-    void send_msg_ud_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
-#endif
     std::vector<Message*> * recv_msg(uint64_t thd_id);
-#if USE_RDMA
-    std::vector<Message*> * recv_msg_rc_rdma(uint64_t thd_id);
-    std::vector<Message*> * recv_msg_ud_rdma(uint64_t thd_id);
+#if USE_RDMA == 1
+    void send_msg_rdma(uint64_t send_thread_id, uint64_t dest_node_id, void * sbuf,int size);
+    void send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_node_id, uint64_t dest_thread_id, void * sbuf,int size);
+    std::vector<Message*> * recv_msg_rdma(uint64_t thd_id);
 #endif
 		void simple_send_msg(int size); 
 		uint64_t simple_recv_msg();
 
     // RDMA related stuff.
-#if USE_RDMA
+#if USE_RDMA == 1
     rdmaio::RdmaCtrl* rdmaCtrl = NULL;
     char* rdma_buffer = NULL;
     char* free_buffer = NULL;
-    std::map<uint64_t, rdmaio::MsgHandler*> msg_handlers; // send_thread_id : msg_handler
-    std::map<uint64_t, char*> recv_buffers;
+    static __thread rdmaio::MsgHandler* msg_handler; // per thread msg_handler
+    static __thread char* recv_buffers;
 
     /**
     * RDMA RC based message.
     */
     uint64_t total_ring_sz;
     uint64_t ring_padding;
-    uint64_t ringsz;
+    // uint64_t ringsz;
 #endif
 
 	private:
 
-#if USE_RDMA
+#if USE_RDMA == 1
     void initRDMA();
     void shutdownRDMA();
 #endif
@@ -106,12 +104,7 @@ class Transport {
     uint64_t _sock_cnt;
     uint64_t _s_cnt;
 		char ** ifaddr;
+    char ** hosts;
     int * endpoint_id;
 };
-
-#if USE_RDMA
-void* malloc_huge_pages(size_t size, uint64_t huge_page_sz, bool flag = true);
-inline double get_memory_size_g(uint64_t bytes) { static double G = 1024.0 * 1024 * 1024; return bytes / G; }
-#endif
-
 #endif

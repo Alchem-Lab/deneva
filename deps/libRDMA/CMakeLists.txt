@@ -13,10 +13,12 @@ add_library(rdma STATIC
 	src/rc.cc
 	src/rdma_ctrl.cc
 	src/ring_imm_msg.cc
+	src/ring_imm_msg_v2.cc
 	src/ring_msg.cc
 	src/uc.cc
 	src/ud.cc
 	src/ud_msg.cc
+	src/ud_msg_v2.cc
 )
 
 find_library(LIBIBVERBS NAMES ibverbs HINTS /usr/lib64/)

@@ -34,15 +34,18 @@ public:
   void setup();
   void register_callbacks() {}
   void worker_routine(yield_func_t &yield) {}
-  
+  void init_communication_graph();
+
   RC  client_recv_loop();
   RC  server_recv_loop();
   void  check_for_init_done();
 
-  MsgHandler *recv_msg_handler_ = NULL;  // communication between servers
+#if RAW_RDMA == 1
+  void create_rdma_connections();
   void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
   void create_rdma_ud_raw_connections(int total_connections);
-  bool poll_comp_callback(char *msg,int from_nid,int from_tid);
+  bool poll_comp_callback(char *msg, int size, int from_nid,int from_tid);
+#endif
 };
 
 class OutputThread : public Thread {
@@ -52,12 +55,15 @@ public:
   void setup();
   void register_callbacks() {}
   void worker_routine(yield_func_t &yield) {}
+  void init_communication_graph();
   MessageThread * messager;
 
-  MsgHandler *send_msg_handler_ = NULL;  // communication between servers
+#if RAW_RDMA == 1
+  void create_rdma_connections();
   void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
   void create_rdma_ud_raw_connections(int total_connections);
-  bool poll_comp_callback(char *msg,int from_nid,int from_tid);
+  bool poll_comp_callback(char *msg, int size, int from_nid,int from_tid);
+#endif
 };
 
 #else

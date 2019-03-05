@@ -12,7 +12,7 @@
 //#define HYPER
 #ifdef  HYPER // hyper threading
 
-static const int per_socket_cores = 24;//TODO!! hard coded
+static const int per_socket_cores = 16;//TODO!! hard coded
 
 static int socket_0[] =  {
   0,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46
@@ -26,7 +26,7 @@ static int socket_1[] = {
 #else
 
 //methods for set affinity
-static const int per_socket_cores = 12;//TODO!! hard coded
+static const int per_socket_cores = 8;//TODO!! hard coded
 //const int per_socket_cores = 8;//reserve 2 cores
 
 static int socket_0[] =  {

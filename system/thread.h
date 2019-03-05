@@ -66,6 +66,8 @@ public:
         use_port_ = 0;
         return use_port_;
     }
+    virtual void init_communication_graph() {}
+    virtual void create_rdma_connections() {}
 private:
   uint64_t prog_time;
   uint64_t heartbeat_time;

@@ -19,7 +19,12 @@
 
 #include "global.h"
 #include "helper.h"
+
+#if USE_RDMA == 1
+#include "ralloc.h"
+#else
 #include "nn.hpp"
+#endif
 
 struct mbuf {
   char * buffer;
@@ -29,7 +34,11 @@ struct mbuf {
   bool wait;
 
   void init(uint64_t dest_id) {
+#if USE_RDMA == 1
+    buffer = (char*)Rmalloc(sizeof(char)*g_msg_size);    
+#else
     buffer = (char*)nn_allocmsg(g_msg_size,0);
+#endif
   }
   void reset(uint64_t dest_id) {
     //buffer = (char*)nn_allocmsg(g_msg_size,0);
@@ -39,6 +48,7 @@ struct mbuf {
     wait = false;
 	  ((uint32_t*)buffer)[0] = dest_id;
 	  ((uint32_t*)buffer)[1] = g_node_id;
+    ((uint32_t*)buffer)[2] = cnt;    
     ptr = sizeof(uint32_t) * 3;
   }
   void copy(char * p, uint64_t s) {
@@ -59,12 +69,20 @@ struct mbuf {
       return true;
     return false;
   }
+  void fini() {
+#if USE_RDMA == 1
+    Rfree(buffer);    
+#else
+    freemsg(buffer);
+#endif    
+  }
 };
 
 class MessageThread {
 public:
-  void init(uint64_t thd_id);
+  void init(uint64_t thd_id, uint64_t recv_thd_id = DEFAULT_REM_THREAD_ID);
   void run();
+  void fini();
   void check_and_send_batches(); 
   void send_batch(uint64_t dest_node_id); 
   void copy_to_buffer(mbuf * sbuf, RemReqType type, BaseQuery * qry); 
@@ -87,7 +105,7 @@ private:
   mbuf ** buffer;
   uint64_t buffer_cnt;
   uint64_t _thd_id;
-
+  uint64_t _recv_thd_id;
 };
 
 #endif

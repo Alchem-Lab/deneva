@@ -138,9 +138,12 @@ class Qp {
     int port_id_;    //  port id of the qp
 
     int tid = 0;
-    int nid = 0;
     int idx_ = 0;
     int port_idx;
+
+    int nid = 0;
+    int rtid = 0;
+    int ridx = 0;
 
     uint8_t pendings = 0;
 
@@ -174,10 +177,14 @@ class Qp {
     //return true if the connection is succesfull
     bool connect_rc();
     bool connect_uc();
+    // connect to some specific qp created by some thread remotely.
+    bool connect_rc_specific();
+    bool connect_uc_specific();
+
     // return true if the connection is succesfull,
     // unlike rc, a ud qp can be used to connnect many destinations, so this method can be called many times
     bool get_ud_connect_info_specific(int remote_id,int thread_id,int idx);
-
+    
     // change rc,uc QP's states to ready
     void change_qp_states(RCQPAttr *remote_qp_attr, int dev_port_id);
 
@@ -327,6 +334,8 @@ class RdmaCtrl {
 
     void end_server();
 
+    // syncing (retrieving) the communication graph entry (nid, tid) from node nid. 
+    bool sync_comm_graph(int nid, int tid);
     //-----------------------------------------------
 
     // qp creation
@@ -335,13 +344,18 @@ class RdmaCtrl {
     // Output: a connected ready to use QP.
     // DZY:assume that one thread only has one corresponding QP
     Qp  *create_rc_qp(int tid, int remote_id,int dev_id,int port_idx, int idx = 0);
-    Qp  *create_uc_qp(int tid, int remote_id,int dev_id,int port_idx, int idx = 0);
+    Qp  *create_rc_qp_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx);
 
+    Qp  *create_uc_qp(int tid, int remote_id,int dev_id,int port_idx, int idx = 0);
+    Qp  *create_uc_qp_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx);
     //  unlike rc qp, a thread may create multiple ud qp, so an idx will identify which ud qp to use
     //Qp  *create_ud_qp(int tid, int remote_id,int dev_id,int port_idx,int idx);
     Qp  *create_ud_qp(int tid,int dev_id,int port_idx,int idx);
 
     void link_connect_qps(int tid, int dev_id, int port_idx,int idx, ibv_qp_type qp_type);
+    void create_qps(int tid, int idx, int dev_id, int port_idx, ibv_qp_type qp_type);
+    void create_qps_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx, ibv_qp_type qp_type);    
+    void link_connect_specific_qps_v2(int tid, int idx, int remote_id, int remote_thread_id, ibv_qp_type qp_type);
 
     //rdma device query
     inline RdmaDevice* get_rdma_device(int dev_id = 0){
@@ -354,6 +368,18 @@ class RdmaCtrl {
         mtx_->lock();
         uint64_t qid = (uint64_t)(_QP_ENCODE_ID(remote_id,RC_ID_BASE + tid * num_rc_qps_+ idx));
         // fprintf(stdout,"find qp %d %d %d, qid %lu\n",tid,remote_id,idx,qid);
+        assert(qps_.find(qid) != qps_.end());
+        if(qps_.find(qid) == qps_.end()) { mtx_->unlock(); return NULL;}
+        Qp *res = qps_[qid];
+        mtx_->unlock();
+        return res;
+    }
+
+    // qp query when using QP V2 encoding scheme
+    inline Qp *get_rc_qp_v2(int tid,int remote_id, int remote_thread_id, int idx = 0) {
+        mtx_->lock();
+        uint64_t qid = (uint64_t)(_QP_ENCODE_ID_V2(remote_id, remote_thread_id, RC_ID_BASE + tid * num_rc_qps_+ idx));
+        fprintf(stdout,"find qp %d %d %d %d, qid %lu\n",tid, remote_id, remote_thread_id, idx, qid);
         assert(qps_.find(qid) != qps_.end());
         if(qps_.find(qid) == qps_.end()) { mtx_->unlock(); return NULL;}
         Qp *res = qps_[qid];
@@ -383,6 +409,19 @@ class RdmaCtrl {
     inline Qp *get_local_ud_qp(int tid) {
         return qps_[_QP_ENCODE_ID(node_id_,tid + UD_ID_BASE)];
     }
+
+    inline uint64_t get_rc_qid_v2(int tid,int remote_id, int remote_thread_id, int idx = 0) {
+        return (uint64_t)(_QP_ENCODE_ID_V2(remote_id, remote_thread_id, RC_ID_BASE + tid * num_rc_qps_+ idx));
+    }
+
+    inline Qp *get_qp(uint64_t qid) {
+        mtx_->lock();
+        assert(qps_.find(qid) != qps_.end());
+        if(qps_.find(qid) == qps_.end()) { mtx_->unlock(); return NULL;}
+        Qp *res = qps_[qid];
+        mtx_->unlock();
+        return res;
+    }    
     //-----------------------------------------------
 
     // minor functions
@@ -425,7 +464,6 @@ class RdmaCtrl {
     // current node id
     int node_id_;
 
-
     // TCP listening port
     int tcp_base_port_;
 
@@ -434,6 +472,11 @@ class RdmaCtrl {
 
     // global network topology
     const std::vector<std::string> network_;
+
+    // the global communication graph
+    // each vertex id in the graph is an 8-bit unsigned integer composed by node_id<4-bit>:thread_id<4-bit>.
+    // Each vertex shall use the _COMPACT_ENCODE_ID macro to construct its ID from node_id and thread_id.
+    std::map<uint, std::vector<uint> > comm_graph;
 
     // which device and port to use
     int dev_id_;

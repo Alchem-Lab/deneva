@@ -4,6 +4,7 @@
 // magic number which indicates whether a connection is set
 #define TCPSUCC 27
 #define TCPFAIL 28
+#define QPNOTFOUND 29
 
 #define MAGIC_NUM 73
 
@@ -60,12 +61,17 @@ inline uint64_t ip_checksum(void* vdata,size_t length) {
 }
 
 namespace rdmaio {
+  enum ConnType {
+    QP_ATTR_REQUEST = 0,
+    COMM_ENTRY_REQUEST = 1
+  };
 
   struct QPConnArg {
     uint64_t checksum;
     uint64_t qid; // the src qp id
     uint8_t  tid;
     uint8_t  nid;
+    ConnType conn_type;
     uint64_t sign;
     void calculate_checksum() {
       checksum = get_checksum();

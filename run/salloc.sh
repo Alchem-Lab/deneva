@@ -11,8 +11,8 @@ if [ -f ${IFCONFIG_PATH} ]; then
 fi
 
 if [ x$2 != "x" ];then
-	salloc -N $1 -t 00:60:00 --nodelist=$2
 	echo $2 | sed 's/,/\n/g' >> ${IFCONFIG_PATH}
+	salloc -N $1 -t 00:60:00 --nodelist=$2
 else
 	LAST_HOST=16
 	FIRST_HOST=`echo $LAST_HOST - $HOST_CNT + 1 | bc`

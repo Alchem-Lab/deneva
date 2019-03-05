@@ -65,22 +65,31 @@ class PreConnector { // helper class used to exchange QP information using TCP/I
     FD_ZERO(&fdset);
     FD_SET(sockfd, &fdset);
 
-    if(select(sockfd + 1, NULL, &fdset, NULL, &timeout) == 1)
+    if(select(sockfd + 1, NULL, &fdset, NULL, &timeout) >= 1)
     {
-      int so_error;
-      socklen_t len = sizeof so_error;
+      if (FD_ISSET(sockfd, &fdset)) {
+          int so_error;
+          socklen_t len = sizeof so_error;
 
-      getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+          getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
 
-      if (so_error == 0) {
-        // success
+          if (so_error == 0) {
+            // success
+            assert(sockfd >= 0);
+            return sockfd;
+          } else {
+            close(sockfd);
+            // fprintf(stderr, "so_error = %d\n", so_error);
+            return -3;
+          }
       } else {
         close(sockfd);
         return -1;
       }
     }
 
-    return sockfd;
+    close(sockfd);
+    return -1;
   }
 
   // timeout in microsend

@@ -81,13 +81,10 @@ UDMsg::UDMsg(RdmaCtrl *cm,int thread_id,int total_threads,
 
   assert(max_recv_num_ <= MAX_RECV_SIZE);
   
-  printf("ABCD");
   cm_->register_dgram_mr(NULL,0,dev_id);
-  printf("DEFG");
 
   init();
   bootstrap_ud_qps(cm,thread_id_,total_threads,dev_id,port_idx,send_qp_num); // make connections
-
 }
 
 void UDMsg::init() {
@@ -311,7 +308,7 @@ void UDMsg::report() {
   pre_total_costs_ = total_costs_;
 }
 
-void UDMsg::poll_comps() {
+int UDMsg::poll_comps() {
 
 #if STATICS == 1
   auto start = rdtsc();
@@ -342,6 +339,7 @@ void UDMsg::poll_comps() {
   }
 #endif
   // end UD polls comps
+  return poll_result;
 }
 
 // dummy methods for backward compatibility

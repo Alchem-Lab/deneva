@@ -10,6 +10,7 @@
 #include "utils.h"
 
 #include "pre_connector.hpp"
+#include "ring_imm_msg_v2.h"
 
 static volatile bool running;
 static pthread_t recv_t_id;
@@ -303,6 +304,43 @@ Qp *RdmaCtrl::create_rc_qp(int tid, int remote_id,int dev_id,int port_idx, int i
     return res;
 }
 
+Qp *RdmaCtrl::create_rc_qp_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx) {
+
+    // TODO: check device
+    // compute local qp id
+    assert(num_rc_qps_ != 0);
+    assert(idx >= 0 && idx < num_rc_qps_);
+    uint64_t qid = _QP_ENCODE_ID_V2(remote_id, remote_thread_id, RC_ID_BASE + tid * num_rc_qps_ + idx);
+    Qp *res = NULL;
+
+    mtx_->lock();
+    // fprintf(stdout,"create qp %d %d %d, qid %lu\n",tid,remote_id,idx,qid);
+    if(qps_.find(qid) != qps_.end() && qps_[qid] != nullptr) {
+        res = qps_[qid];
+        mtx_->unlock();
+        return res;
+    }
+    res = new Qp();
+    // set ids
+    // local
+    res->tid  = tid;
+    res->idx_ = idx;
+    // remote
+    res->nid = remote_id;
+    res->rtid = remote_thread_id;
+    res->ridx = idx;
+
+    res->port_idx = enable_single_thread_mr_ ? 1 : port_idx;
+
+    res->init_rc(get_rdma_device(dev_id),port_idx);
+    qps_.insert(std::make_pair(qid,res));
+    fprintf(stdout,"create qp tid=%d idx=%d remote_id=%d remote_thread_id=%d done %p\n",tid, idx, remote_id, remote_thread_id, res);
+    mtx_->unlock();
+
+    // done
+    return res;
+}
+
 Qp *RdmaCtrl::create_uc_qp(int tid, int remote_id,int dev_id,int port_idx, int idx) {
     // TODO: check device
 
@@ -331,6 +369,10 @@ Qp *RdmaCtrl::create_uc_qp(int tid, int remote_id,int dev_id,int port_idx, int i
     mtx_->unlock();
     // done
     return res;
+}
+
+Qp *RdmaCtrl::create_uc_qp_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx) {
+    assert(false);
 }
 
 Qp *RdmaCtrl::create_ud_qp(int tid,int dev_id,int port_idx,int idx) {
@@ -415,8 +457,83 @@ void RdmaCtrl::link_connect_qps(int tid, int dev_id, int port_idx, int idx, ibv_
             usleep(200000);
             if (retry_cnt % 10 == 0)
                 fprintf(stderr,"%d: %d out of %d qps connected. Retry connecting qps...\n",tid, connected, get_num_nodes());
-            CE(retry_cnt >= 100, "too many qps connection retries.");
+            // CE(retry_cnt >= 100, "too many qps connection retries.");
             retry_cnt++;
+        }
+    }
+}
+
+void RdmaCtrl::create_qps(int tid, int idx, int dev_id, int port_idx, ibv_qp_type qp_type){
+
+    Qp* (RdmaCtrl::* create_qp_func)(int,int,int,int,int);
+    int num_qps;
+
+    switch(qp_type) {
+        case IBV_QPT_RC:
+            create_qp_func = &RdmaCtrl::create_rc_qp;
+            num_qps = num_rc_qps_;
+            break;
+        case IBV_QPT_UC:
+            create_qp_func = &RdmaCtrl::create_uc_qp;
+            num_qps = num_uc_qps_;
+            break;
+        default:
+            CE(true,"create_qps: error qp type");
+    }
+    for(uint i = 0; i < get_num_nodes();++i) {
+        Qp *qp = (this->*create_qp_func)(tid,i,dev_id,port_idx,idx);
+        assert(qp != NULL);
+    }
+}
+
+void RdmaCtrl::create_qps_v2(int tid, int idx, int remote_id, int remote_thread_id, int remote_idx, int dev_id, int port_idx, ibv_qp_type qp_type) {
+
+    Qp* (RdmaCtrl::* create_qp_func)(int,int,int,int,int,int,int);
+    int num_qps;
+
+    switch(qp_type) {
+        case IBV_QPT_RC:
+            create_qp_func = &RdmaCtrl::create_rc_qp_v2;
+            num_qps = num_rc_qps_;
+            break;
+        case IBV_QPT_UC:
+            create_qp_func = &RdmaCtrl::create_uc_qp_v2;
+            num_qps = num_uc_qps_;
+            break;
+        default:
+            CE(true,"create_qps: error qp type");
+    }
+
+    Qp *qp = (this->*create_qp_func)(tid, idx, remote_id, remote_thread_id, remote_idx, dev_id, port_idx);
+    assert(qp != NULL);
+}
+
+void RdmaCtrl::link_connect_specific_qps_v2(int tid, int idx, int remote_id, int remote_tid, ibv_qp_type qp_type) {
+    bool (Qp::* connect_specific_qps_func)();
+    int num_qps;
+
+    switch(qp_type) {
+        case IBV_QPT_RC:
+            connect_specific_qps_func = &Qp::connect_rc_specific;
+            num_qps = num_rc_qps_;
+            break;
+        case IBV_QPT_UC:
+            connect_specific_qps_func = &Qp::connect_uc_specific;
+            num_qps = num_uc_qps_;
+            break;
+        default:
+            CE(true,"link_connect_specific_qps: error qp type");
+    }
+
+    Qp* qp = get_rc_qp_v2(tid, remote_id, remote_tid, idx);
+
+    while (!qp->inited_) {
+        bool ret = (qp->*connect_specific_qps_func)();
+        if (ret) {
+            assert(qp->inited_);
+            break;
+        } else {
+            usleep(200000);
         }
     }
 }
@@ -518,10 +635,11 @@ void* RdmaCtrl::recv_thread(void *arg){
 
             // accept a request
             struct sockaddr_in cli_addr;
-            socklen_t clilen;
+            socklen_t clilen = sizeof cli_addr;
             auto csfd = accept(listenfd,(struct sockaddr *) &cli_addr, &clilen);
             QPConnArg arg;
-
+            auto accept_errno = errno;
+            fprintf(stderr, "accepted connection request from %s, errno=%d\n", inet_ntoa(cli_addr.sin_addr), accept_errno);
             if(!PreConnector::wait_recv(csfd)) {
                 close(csfd);
                 continue;
@@ -537,56 +655,155 @@ void* RdmaCtrl::recv_thread(void *arg){
             assert(arg.sign = MAGIC_NUM);
             assert(arg.get_checksum() == arg.checksum);
             assert(arg.nid == rdma->node_id_);
-
             uint64_t qid = arg.qid;
             uint64_t nid = _QP_DECODE_MAC(qid);
+            uint64_t tid = _QP_DECODE_THREAD(qid);
             uint64_t idx = _QP_DECODE_INDEX(qid);
+            uint64_t id = _COMPACT_ENCODE_ID(arg.nid, arg.tid);
+            char *reply_buf = NULL;
+            switch(arg.conn_type) {
+                case QP_ATTR_REQUEST:
 
-            char *reply_buf = new char[sizeof(QPReplyHeader) + sizeof(RCQPAttr)];
-            memset(reply_buf,0,sizeof(QPReplyHeader) + sizeof(RCQPAttr));
+                    reply_buf = new char[sizeof(QPReplyHeader) + sizeof(RCQPAttr)];
+                    memset(reply_buf,0,sizeof(QPReplyHeader) + sizeof(RCQPAttr));
 
-            rdma->mtx_->lock();
-            if(rdma->qps_.find(qid) == rdma->qps_.end()) {
-                (*(QPReplyHeader *)(reply_buf)).status = TCPFAIL;
-            } else {
-                if(IS_UD(qid)) {
-                    (*(QPReplyHeader *)(reply_buf)).qid = qid;
-                    // further check whether receives are posted
-                    Qp *ud_qp = rdma->qps_[qid];
-                    if(ud_qp->inited_ == false) {
-                        (*(QPReplyHeader *)(reply_buf)).status = TCPFAIL;
+                    rdma->mtx_->lock();
+                    if(rdma->qps_.find(qid) == rdma->qps_.end()) {
+                        fprintf(stderr, "remote qp not found");
+                        if(IS_RC(qid)) {
+                            fprintf(stderr, "RCQP for remote node %d, thread_id == %d, idx = %d not found.\n", nid, tid, idx); 
+                        }
+                        (*(QPReplyHeader *)(reply_buf)).status = QPNOTFOUND;
                     } else {
-                        (*(QPReplyHeader *)(reply_buf)).status = TCPSUCC;
-                        num++;
-                        //RdmaQpAttr qp_attr = rdma->get_local_qp_attr(qid);
-                        QPAttr qp_attr = rdma->get_qp_attr(qid);
-                        memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),
-                               (char *)(&qp_attr),sizeof(QPAttr));
+                        if(IS_UD(qid)) {
+                            fprintf(stderr, "qid is UD qid! Incorrect!.\n");
+                            (*(QPReplyHeader *)(reply_buf)).qid = qid;
+                            // further check whether receives are posted
+                            Qp *ud_qp = rdma->qps_[qid];
+                            if(ud_qp->inited_ == false) {
+                                (*(QPReplyHeader *)(reply_buf)).status = TCPFAIL;
+                            } else {
+                                (*(QPReplyHeader *)(reply_buf)).status = TCPSUCC;
+                                num++;
+                                //RdmaQpAttr qp_attr = rdma->get_local_qp_attr(qid);
+                                QPAttr qp_attr = rdma->get_qp_attr(qid);
+                                memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),
+                                       (char *)(&qp_attr),sizeof(QPAttr));
+                            }
+                        } else { // the case for RC qp
+
+                            (*(QPReplyHeader *)(reply_buf)).status = TCPSUCC;
+                            //RdmaQpAttr qp_attr = rdma->get_local_qp_attr(qid);
+                            //memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),(char *)(&qp_attr),sizeof(RdmaQpAttr));
+                            RCQPAttr rc_attr;
+                            rc_attr.connection_attr_ = rdma->get_qp_attr(qid);
+                            rc_attr.memory_attr_     = rdma->get_mr_attr(qid);
+                            memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),
+                                   (char *)(&rc_attr),sizeof(RCQPAttr));
+                        }
                     }
-                } else { // the case for RC qp
 
-                    (*(QPReplyHeader *)(reply_buf)).status = TCPSUCC;
-                    //RdmaQpAttr qp_attr = rdma->get_local_qp_attr(qid);
-                    //memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),(char *)(&qp_attr),sizeof(RdmaQpAttr));
-                    RCQPAttr rc_attr;
-                    rc_attr.connection_attr_ = rdma->get_qp_attr(qid);
-                    rc_attr.memory_attr_     = rdma->get_mr_attr(qid);
-                    memcpy((char *)(reply_buf) + sizeof(QPReplyHeader),
-                           (char *)(&rc_attr),sizeof(RCQPAttr));
-                }
+                    rdma->mtx_->unlock();
+                    // reply with the QP attribute
+                    PreConnector::send_to(csfd,reply_buf,sizeof(QPReplyHeader) + sizeof(RCQPAttr));
+                    PreConnector::wait_close(csfd); // wait for the client to close the connection
+                    delete reply_buf;
+                    break;
+                case COMM_ENTRY_REQUEST:
+
+                    reply_buf = new char[rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED];
+                    memset(reply_buf, 0, rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
+                    assert(rdma->comm_graph.find(id) != rdma->comm_graph.end() && rdma->comm_graph[id].size() > 0);
+                    for (int i = 0; i < rdma->comm_graph[id].size(); i++) {
+                        assert(rdma->comm_graph[id][i] < rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
+                        reply_buf[rdma->comm_graph[id][i]] = '1';
+                    }
+                    // reply with the comm_graph entries.
+                    PreConnector::send_to(csfd, reply_buf, rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);    
+                    PreConnector::wait_close(csfd); // wait for the client to close the connection
+                    delete reply_buf;
+                    break;        
+                default:
+                    assert(false);
             }
-
-            rdma->mtx_->unlock();
-            // reply with the QP attribute
-            PreConnector::send_to(csfd,reply_buf,sizeof(QPReplyHeader) + sizeof(RCQPAttr));
-            PreConnector::wait_close(csfd); // wait for the client to close the connection
-            delete reply_buf;
         }   // while receiving reqests
         close(listenfd);
     } catch (...) {
         // pass
     }
     printf("[librdma] : recv thread exit!\n");
+}
+
+
+bool RdmaCtrl::sync_comm_graph(int nid, int tid) {
+
+    if(comm_graph.find(_COMPACT_ENCODE_ID(nid, tid)) != comm_graph.end()) {
+        assert(comm_graph[_COMPACT_ENCODE_ID(nid, tid)].size() > 0);
+        return true;
+    }
+
+    QPConnArg arg; memset((char *)(&arg),0,sizeof(QPConnArg));
+    arg.sign = MAGIC_NUM;
+    arg.tid  = tid;
+    arg.nid  = nid;
+    arg.conn_type = COMM_ENTRY_REQUEST;
+    arg.calculate_checksum();
+    //socket.send(request);
+
+    // prepare socket to remote
+    int socket = -1;
+    while (true) {
+        socket = PreConnector::get_send_socket(network[nid],tcp_base_port);
+        if(socket < 0) {
+            // cannot establish the connection, shall retry
+            // fprintf(stderr, "get send socket failed! socket error code = %d\n", socket);
+            usleep(200000);
+            continue;
+        }
+        break;
+    }
+
+    auto n = send(socket,(char *)(&arg),sizeof(QPConnArg),0);
+    if(n != sizeof(QPConnArg)) {
+        shutdown(socket,SHUT_RDWR);
+        close(socket);
+        fprintf(stderr, "n == %d  != sizeof(QPConnArg) == %u\n", n, sizeof(QPConnArg));
+        return false;
+    }
+
+    // receive reply
+    if(!PreConnector::wait_recv(socket)) {
+        shutdown(socket,SHUT_RDWR);
+        close(socket);
+        fprintf(stderr, "wait_recv timeout.");
+        return false;
+    }
+
+    int buf_size = rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED;
+    char *reply_buf = new char[buf_size];
+
+    n = recv(socket,reply_buf,buf_size, MSG_WAITALL);
+    if(n != rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED) {
+
+        shutdown(socket,SHUT_RDWR);
+        close(socket);
+        delete reply_buf;
+        usleep(1000);
+        fprintf(stderr, "n == %d  != rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED == %u\n", n, rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
+        return false;
+    }
+
+    // close connection
+    shutdown(socket,SHUT_RDWR);
+    close(socket);
+
+    for (int i = 0; i < rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED; i++) {
+        if (reply_buf[i] != 0) {
+           comm_graph[_COMPACT_ENCODE_ID(nid,tid)].push_back(i);
+        }
+    }
+    delete reply_buf;
+    return true;
 }
 
 ibv_ah* RdmaCtrl::create_ah(int dlid, int port_index, RdmaDevice* rdma_device){

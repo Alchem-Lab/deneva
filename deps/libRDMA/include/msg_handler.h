@@ -8,6 +8,7 @@
 namespace rdmaio {
 
   typedef std::function<void(char *,int,int)> msg_func_t;
+  typedef std::function<void(char *,int,int,int)> msg_func_v2_t;
 
   class MsgHandler {
   public:
@@ -56,8 +57,8 @@ namespace rdmaio {
 
     }
 
-    // poll all pending messages
-    virtual void  poll_comps() = 0;
+    // poll all pending messages, return the number of completions polled.
+    virtual int  poll_comps() = 0;
 
     virtual int get_num_nodes() = 0;
     virtual int get_thread_id() = 0;

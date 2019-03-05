@@ -6,7 +6,7 @@
 #include "routine.h"
 
 // rdma related libs
-#include "ring_imm_msg.h"
+#include "ring_imm_msg_v2.h"
 #include "tcp_adapter.hpp"
 
 #include "utils/amd64.h" // for nop pause
@@ -24,7 +24,6 @@
 
 using namespace std;
 using namespace rdmaio;
-using namespace rdmaio::ring_imm_msg;
 
 namespace nocc {
 
@@ -38,6 +37,8 @@ namespace oltp {
 
 // per coroutine random generator
 __thread util::fast_random *random_generator = NULL;
+
+// std::unordered_map<uint, std::vector<uint> > RWorker::comm_graph;
 
 // A new event loop channel
 void  RWorker::new_master_routine(yield_func_t &yield,int cor_id) {
@@ -98,11 +99,9 @@ void RWorker::init_rdma() {
     return;
   }
 
-  LOG(1) << "TTTTTT";
   cm_->thread_local_init();
   choose_rnic_port();
 
-  LOG(1) << "SSSSS";
   // get the device id and port id used on the nic.
 
   int dev_id = cm_->get_active_dev(use_port_);
@@ -113,6 +112,10 @@ void RWorker::init_rdma() {
   // open the specific RNIC handler, and register its memory
   cm_->open_device(dev_id);
   cm_->register_connect_mr(dev_id); // register memory on the specific device
+}
+
+void RWorker::communication_graph_global_sync() {
+  // do nothing for now.
 }
 
 void RWorker::create_qps(int num) {
@@ -135,6 +138,50 @@ void RWorker::create_qps(int num) {
 #if USE_UD_MSG == 0 && USE_TCP_MSG == 0 // use RC QP, thus create its QP
   cm_->link_connect_qps(worker_id_, dev_id, port_idx, 0, IBV_QPT_RC);
 #endif // USE_UD_MSG
+}
+
+void RWorker::create_qps_without_link_connect() {
+  if(!USE_RDMA) {
+    LOG(1) << "warning: not created any qps due to USE_RDMA == 0.";
+    return;
+  }
+
+  // LOG(1) << "using RDMA device: " << use_port_ << " to create qps @" << worker_id_;
+  assert(use_port_ >= 0); // check if init_rdma has been called
+
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+
+  uint id = _COMPACT_ENCODE_ID(cm_->get_nodeid(), worker_id_);
+  if(cm_->comm_graph.find(id) == cm_->comm_graph.end()) {
+     LOG(1) << "Info: " << cm_->get_nodeid() << ":" << worker_id_ << " will not communicate according to the communication graph.";
+  } else {
+    std::vector<uint> neighbors = cm_->comm_graph[id];
+    for (uint i = 0; i < neighbors.size(); i++) {
+      assert(cm_->comm_graph.find(neighbors[i]) != cm_->comm_graph.end());
+      std::vector<uint> nei = cm_->comm_graph[neighbors[i]];
+      std::vector<uint>::iterator itr = std::find(nei.begin(), nei.end(), id);
+      assert (itr != nei.end());
+      int index = itr - nei.begin();
+      cm_->create_qps_v2(worker_id_, 0, _COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]), index, dev_id, port_idx, IBV_QPT_RC);
+    }
+  }
+}
+
+void RWorker::link_connect(int remote_id, int remote_thread_id, int idx) {
+  cm_->link_connect_specific_qps_v2(worker_id_, idx, remote_id, remote_thread_id, IBV_QPT_RC);
+}
+
+void RWorker::connect_all_links() {
+  int id = _COMPACT_ENCODE_ID(cm_->get_nodeid(), worker_id_);
+  if (cm_->comm_graph.find(id) == cm_->comm_graph.end()) {
+     return;
+  }
+  
+  std::vector<uint> neighbors = cm_->comm_graph[id];
+  for (uint i = 0; i < neighbors.size(); i++) {
+    link_connect(_COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]), 0);
+  }
 }
 
 void RWorker::init_routines(int coroutines) {
@@ -173,7 +220,7 @@ void RWorker::init_routines(int coroutines) {
 void RWorker::create_client_connections(int total_connections) {
 
   if(server_type_ == UD_MSG && msg_handler_ != NULL) {
-    client_handler_ = static_cast<UDMsg *>(msg_handler_);
+    client_handler_ = msg_handler_;
   } else {
     // create one
     ASSERT(cm_ != NULL) << "Currently client connection uses UD.";
@@ -182,7 +229,8 @@ void RWorker::create_client_connections(int total_connections) {
     assert(use_port_ >= 0);
     int dev_id = cm_->get_active_dev(use_port_);
     int port_idx = cm_->get_active_port(use_port_);
-
+    
+    using namespace rdmaio::udmsg;
     client_handler_ = new UDMsg(cm_,worker_id_,total_connections,
                                 2048, // max concurrent msg received
                                 std::bind(&RRpc::poll_comp_callback,rpc_,
@@ -199,11 +247,12 @@ void RWorker::create_rdma_rc_connections(char *start_buffer,uint64_t total_ring_
   ASSERT(USE_RDMA);
   ASSERT(rpc_ == NULL && msg_handler_ == NULL);
   rpc_ = new RRpc(worker_id_,total_worker_coroutine);
+
+  using namespace rdmaio::ring_imm_msg_v2;
   msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,worker_id_,cm_,start_buffer,
                                  std::bind(&RRpc::poll_comp_callback,rpc_,
                                            std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
   rpc_->set_msg_handler(msg_handler_);
-
   server_type_ = RC_MSG;
 }
 
@@ -211,26 +260,18 @@ void RWorker::create_rdma_rc_connections(char *start_buffer,uint64_t total_ring_
 void RWorker::create_rdma_ud_connections(int total_connections) {
 
   assert(cm_ != NULL);
-
-  LOG(2) << "UUU: use_port_=" << use_port_;
   int dev_id = cm_->get_active_dev(use_port_);
   int port_idx = cm_->get_active_port(use_port_);
-
   assert(USE_RDMA);
-
-  LOG(2) << "VVV";
   rpc_ = new RRpc(worker_id_,total_worker_coroutine);
 
-  LOG(2) << "WWW: " << dev_id << " " << port_idx;
   using namespace rdmaio::udmsg;
   msg_handler_ = new UDMsg(cm_,worker_id_,total_connections,
                            2048, // max concurrent msg received
                            std::bind(&RRpc::poll_comp_callback,rpc_,
                                      std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
                            dev_id,port_idx,1);
-  LOG(2) << "YYY";
   rpc_->set_msg_handler(msg_handler_);
-
   server_type_ = UD_MSG;
 }
 

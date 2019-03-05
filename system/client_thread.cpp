@@ -29,7 +29,7 @@
 #include "message.h"
 
 void ClientThread::setup() {
-	if( _thd_id == 0) {
+  if( _thd_id == 0) {
     send_init_done_to_all_nodes();
   }
 #if LOAD_METHOD == LOAD_RATE

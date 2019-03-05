@@ -37,7 +37,7 @@ namespace rdmaio {
       Qp::IOStatus send_to(int node,int tid,char *msg,int len);
       Qp::IOStatus broadcast_to(int *node_ids, int num_of_node, char *msg,int len);
 
-      virtual void poll_comps();
+      virtual int poll_comps();
 
       // force a sync among all current in-flight messages, return when all these msgs are ready
       void force_sync(int *node_id,int num_of_node);

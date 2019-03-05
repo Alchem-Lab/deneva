@@ -149,7 +149,7 @@ namespace rdmaio {
       return (Qp::IOStatus)ret;
     }
 
-    void RingMessage::poll_comps() {
+    int RingMessage::poll_comps() {
 
       uint64_t polled = 0;
 
@@ -168,6 +168,8 @@ namespace rdmaio {
       RECV_END:
         ; /*pass */
       }
+
+      return polled;
     }
 
     void RingMessage::force_sync(int *node_ids, int num_of_node) {

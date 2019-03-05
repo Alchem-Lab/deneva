@@ -30,20 +30,23 @@ bool Qp::connect_rc() {
 	arg.sign = MAGIC_NUM;
     arg.tid  = tid;
     arg.nid  = nid;
+    arg.conn_type = QP_ATTR_REQUEST;
 	arg.calculate_checksum();
 	//socket.send(request);
 
 	// prepare socket to remote
-	fprintf(stderr, "%d:%d get_send_socket: %s:%d\n", nid, tid, network[nid].c_str(), tcp_base_port);
+	// fprintf(stderr, "%d:%d get_send_socket: %d:%s:%d\n", node_id, tid, nid, network[nid].c_str(), tcp_base_port);
 	auto socket = PreConnector::get_send_socket(network[nid],tcp_base_port);
 	if(socket < 0) {
 		// cannot establish the connection, shall retry
+		// fprintf(stderr, "get send socket failed! socket error code = %d\n", socket);
 		return false;
 	}
 	auto n = send(socket,(char *)(&arg),sizeof(QPConnArg),0);
 	if(n != sizeof(QPConnArg)) {
 		shutdown(socket,SHUT_RDWR);
         close(socket);
+        fprintf(stderr, "n == %d  != sizeof(QPConnArg) == %u\n", n, sizeof(QPConnArg));
         return false;
     }
 
@@ -51,6 +54,7 @@ bool Qp::connect_rc() {
 	if(!PreConnector::wait_recv(socket)) {
 		shutdown(socket,SHUT_RDWR);
 		close(socket);
+		fprintf(stderr, "wait_recv timeout.");
 		return false;
 	}
 
@@ -64,10 +68,12 @@ bool Qp::connect_rc() {
         close(socket);
         delete reply_buf;
         usleep(1000);
+        fprintf(stderr, "n == %d  != sizeof(QPConnArg) + sizeof(QPReplyHeader) == %u\n", n, sizeof(RCQPAttr) + sizeof(QPReplyHeader));
         return false;
     }
 
 	// close connection
+	shutdown(socket,SHUT_RDWR);
 	close(socket);
 
 	QPReplyHeader *hdr = (QPReplyHeader *)(reply_buf);
@@ -76,6 +82,101 @@ bool Qp::connect_rc() {
 
 	} else if(hdr->status == TCPFAIL) {
 		delete reply_buf;
+		fprintf(stderr, "tcp failed.\n");
+		return false;
+	} else {
+		fprintf(stdout,"QP connect fail!, val %d\n",((char *)reply_buf)[0]);
+		assert(false);
+	}
+
+	//RdmaQpAttr qp_attr;
+	//memcpy(&qp_attr,(char *)reply_buf + sizeof(QPReplyHeader),sizeof(RdmaQpAttr));
+	RCQPAttr qp_attr;
+	memcpy(&qp_attr,(char *)reply_buf + sizeof(QPReplyHeader),sizeof(RCQPAttr));
+
+	change_qp_states(&qp_attr,port_idx);
+
+	inited_ = true;
+
+	delete reply_buf;
+	return true;
+}
+
+bool Qp::connect_rc_specific() {
+
+	if(inited_) {
+		return true;
+	} else {
+		//			fprintf(stdout,"qp %d %d not connected\n",tid,nid);
+	}
+
+	//node_id is my machine id
+	//rtid is the remote thread id of the thread on the machine I want to connect to.
+	//tid is my thread id
+	int remote_qid = _QP_ENCODE_ID_V2(node_id, tid, RC_ID_BASE + rtid * num_rc_qps + ridx);
+
+	char address[30];
+
+	QPConnArg arg; memset((char *)(&arg),0,sizeof(QPConnArg));
+	arg.qid = remote_qid;
+	arg.sign = MAGIC_NUM;
+    arg.tid  = rtid;
+    arg.nid  = nid;
+	arg.calculate_checksum();
+	//socket.send(request);
+
+	// prepare socket to remote
+	// fprintf(stderr, "%d:%d get_send_socket: %d:%s:%d\n", node_id, tid, nid, network[nid].c_str(), tcp_base_port);
+	auto socket = PreConnector::get_send_socket(network[nid],tcp_base_port);
+	if(socket < 0) {
+		// cannot establish the connection, shall retry
+		fprintf(stderr, "get send socket failed! socket error code = %d\n", socket);
+		return false;
+	}
+	auto n = send(socket,(char *)(&arg),sizeof(QPConnArg),0);
+	if(n != sizeof(QPConnArg)) {
+		shutdown(socket,SHUT_RDWR);
+        close(socket);
+        fprintf(stderr, "n == %d  != sizeof(QPConnArg) == %u\n", n, sizeof(QPConnArg));
+        return false;
+    }
+
+	// receive reply
+	if(!PreConnector::wait_recv(socket)) {
+		shutdown(socket,SHUT_RDWR);
+		close(socket);
+		fprintf(stderr, "wait_recv timeout.");
+		return false;
+	}
+
+    int buf_size = sizeof(QPReplyHeader) + sizeof(RCQPAttr);
+    char *reply_buf = new char[buf_size];
+
+    n = recv(socket,reply_buf,buf_size, MSG_WAITALL);
+	if(n != sizeof(RCQPAttr) + sizeof(QPReplyHeader)) {
+
+		shutdown(socket,SHUT_RDWR);
+        close(socket);
+        delete reply_buf;
+        usleep(1000);
+        fprintf(stderr, "n == %d  != sizeof(QPConnArg) + sizeof(QPReplyHeader) == %u\n", n, sizeof(RCQPAttr) + sizeof(QPReplyHeader));
+        return false;
+    }
+
+	// close connection
+	shutdown(socket,SHUT_RDWR);
+	close(socket);
+
+	QPReplyHeader *hdr = (QPReplyHeader *)(reply_buf);
+
+	if(hdr->status == TCPSUCC) {
+
+	} else if(hdr->status == TCPFAIL) {
+		delete reply_buf;
+		fprintf(stderr, "tcp failed.\n");
+		return false;
+	} else if (hdr->status == QPNOTFOUND) {
+		fprintf(stderr, "QP not found. node_id = %d, tid = %d, rtid = %d, ridx = %d\n", node_id, tid, rtid, ridx);
 		return false;
 	} else {
 		fprintf(stdout,"QP connect fail!, val %d\n",((char *)reply_buf)[0]);

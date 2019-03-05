@@ -10,7 +10,7 @@ set (test
     "one_sided"
     "multi_post_read"
     "hybrid"
-    # "ud_msg"
+    "ud_msg"
     "dev"
 )
 
@@ -69,7 +69,7 @@ file(GLOB SOURCES "${PROJECT_BINARY_DIR}/../src/*.cc" )
 #endforeach(exe)
 
 add_executable(rc_ping ${PROJECT_BINARY_DIR}/rc_ping_test/test.cc ${PROJECT_BINARY_DIR}/main.cc ${SOURCES})
-#add_executable(ud_msg ${PROJECT_BINARY_DIR}/ud_msg_test/test.cc ${PROJECT_BINARY_DIR}/main.cc ${SOURCES})
+add_executable(ud_msg ${PROJECT_BINARY_DIR}/ud_msg_test/test.cc ${PROJECT_BINARY_DIR}/main.cc ${SOURCES})
 #add_executable(ralloc_test ${PROJECT_BINARY_DIR}/ralloc_test.cc)
 #add_executable(msg_test ${PROJECT_BINARY_DIR}/ring_msg_test/test.cc ${PROJECT_BINARY_DIR}/main.cc ${SOURCES})
 add_executable(mr_test  ${PROJECT_BINARY_DIR}/mem_test/test.cc  ${SOURCES})

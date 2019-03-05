@@ -6,6 +6,7 @@
 // RDMA related parameters
 /***********************************************/
 #define USE_RDMA 1
+#define RAW_RDMA 1
 
 #define USE_UD_MSG 0
 #define USE_RC_MSG 1
@@ -81,8 +82,8 @@
 /***********************************************/
 // Simulation + Hardware
 /***********************************************/
-#define NODE_CNT 2
-#define THREAD_CNT 4
+#define NODE_CNT 1
+#define THREAD_CNT 1
 #define REM_THREAD_CNT THREAD_CNT
 #define SEND_THREAD_CNT THREAD_CNT
 #define CORE_CNT 8
@@ -91,10 +92,13 @@
 // PART_CNT should be at least NODE_CNT
 #define PART_CNT NODE_CNT
 #define CLIENT_NODE_CNT 1
-#define CLIENT_THREAD_CNT 1
-#define CLIENT_REM_THREAD_CNT 2
-#define CLIENT_SEND_THREAD_CNT 2
+#define CLIENT_THREAD_CNT THREAD_CNT
+#define CLIENT_REM_THREAD_CNT THREAD_CNT
+#define CLIENT_SEND_THREAD_CNT THREAD_CNT
 #define CLIENT_RUNTIME false
+
+#define DEFAULT_REM_THREAD_ID THREAD_CNT
+#define DEFAULT_SEND_THREAD_ID (THREAD_CNT + REM_THREAD_CNT)
 
 #define LOAD_METHOD LOAD_MAX
 #define LOAD_PER_SERVER 100

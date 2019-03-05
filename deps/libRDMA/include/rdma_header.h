@@ -1,12 +1,15 @@
 #define DUAL_PORT 1
 
 #define _RDMA_INDEX_MASK (0xffff)
-#define _RDMA_MAC_MASK (_RDMA_INDEX_MASK << 16)
-#define _QP_ENCODE_ID(mac,index) ((mac) << 16 | (index))
+#define _RDMA_MAC_MASK (0xff << 24)
+#define _RDMA_THREAD_MASK (0xff << 16)
+#define _QP_ENCODE_ID_V2(mac, thread, index) ((mac) << 24 | (thread) << 16 | (index))
+#define _QP_ENCODE_ID(mac, index) ((mac) << 24 | (index))
 //#define _UD_ENCODE_ID(mac,index) ((index) << 16 | (mac)) // used for address handler
 #define _UD_ENCODE_ID(mac,index) (mac) // used for address handler
 
-#define _QP_DECODE_MAC(qid) (((qid) & _RDMA_MAC_MASK) >> 16 )
+#define _QP_DECODE_MAC(qid) (((qid) & _RDMA_MAC_MASK) >> 24 )
+#define _QP_DECODE_THREAD(qid) (((qid) & _RDMA_THREAD_MASK) >> 16 )
 #define _QP_DECODE_INDEX(qid) ((qid) & _RDMA_INDEX_MASK)
 
 #define IS_RC(qid) (_QP_DECODE_INDEX(qid)>=RC_ID_BASE && _QP_DECODE_INDEX(qid) < UC_ID_BASE)
@@ -19,6 +22,12 @@
 
 #define DEFAULT_PROTECTION_FLAG ( IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_READ | \
                                   IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_ATOMIC)
+
+#define _COMPACT_MAC_MASK (0xf0)
+#define _COMPACT_THREAD_MASK (0xf)
+#define _COMPACT_ENCODE_ID(mac, thread) ((mac) << 4 | (thread))
+#define _COMPACT_DECODE_MAC(ntid) (((ntid) & _COMPACT_MAC_MASK) >> 4)
+#define _COMPACT_DECODE_THREAD(ntid) ((ntid) & _COMPACT_THREAD_MASK)
 
 // XD: can we clean these flags?
 #define GRH_SIZE 40

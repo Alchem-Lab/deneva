@@ -91,6 +91,13 @@ bool Qp::connect_uc() {
     return true;
 }
 
+bool Qp::connect_uc_specific() {
+#if 0
+    assert(false);
+#endif
+    return true;
+}
+
 Qp::IOStatus Qp::uc_post_send(ibv_wr_opcode op,char *local_buf,int len,uint64_t off,int flags) {
 
     IOStatus rc = IO_SUCC;

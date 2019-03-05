@@ -170,14 +170,18 @@ class Adapter : public MsgHandler {
 
   void check() { }
 
-  void  poll_comps() {
+  int  poll_comps() {
+    int polled = 0;
     zmq::message_t *msg;
     while(queue_->front((char *)(&msg))) {
-      int tid = *((char *)(msg->data())); int nid = *( (char *)(msg->data()) + sizeof(char));
+      int tid = *((char *)(msg->data())); 
+      int nid = *( (char *)(msg->data()) + sizeof(char));
       callback_((char *)(msg->data()) + sizeof(char) + sizeof(char), nid,tid);
       free(msg);
       queue_->pop();
+      polled++;
     }
+    return polled;
   }
  private:
   /* a set of send sockets, if each adapter use dedicated sockets

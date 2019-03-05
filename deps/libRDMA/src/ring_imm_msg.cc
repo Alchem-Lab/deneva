@@ -207,7 +207,7 @@ namespace rdmaio {
 
     void RingMessage::check() { }
 
-    void RingMessage::poll_comps() {
+    int RingMessage::poll_comps() {
       // assert(false);
       // for(uint nid = 0; nid < num_nodes_; ++nid) {
         int poll_result = ibv_poll_cq(qp_vec_[0]->recv_cq, RC_MAX_SHARED_RECV_SIZE,wc_);
@@ -246,6 +246,8 @@ namespace rdmaio {
             idle_recv_nums_[nid] = 0;
           }
         }
+
+        return poll_result;
     }
 
 

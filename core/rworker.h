@@ -13,12 +13,12 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include <stdint.h>
 
 #include <zmq.hpp>
 
 using namespace rdmaio;
-using namespace rdmaio::udmsg;
 
 namespace nocc {
 
@@ -70,7 +70,17 @@ class RWorker : public ndb_thread {
 
   void init_rdma();
 
+  virtual void init_communication_graph() = 0;
+
+  void communication_graph_global_sync();
+  
   void create_qps(int num  = 0); // depends init_rdma
+
+  void create_qps_without_link_connect(); // depends on init_rdma and init_communication_graph.
+
+  void link_connect(int remote_id, int remote_thread_id, int local_idx = 0);
+
+  void connect_all_links();
 
   void create_rdma_ud_connections(int total_connections = 1);
 
@@ -144,15 +154,15 @@ class RWorker : public ndb_thread {
   RdmaCtrl *cm_ = NULL;
   RRpc *rpc_    = NULL;
   RScheduler *rdma_sched_ = NULL;
-  int       use_port_ = -1;  // which RNIC's device to use
 
+  int    use_port_ = -1;  // which RNIC's device to use
   // running status
   bool   running = false;
   bool   inited  = false;
 
   // [chao]: change msg_handlers to protected so that child class can see.
   MsgHandler *msg_handler_ = NULL;  // communication between servers
-  UDMsg *client_handler_   = NULL;  // communication with clients
+  MsgHandler *client_handler_   = NULL;  // communication with clients
  private:
   MSGER_TYPE  server_type_ = UD_MSG;
   coroutine_func_t *routines_ = NULL;
@@ -171,7 +181,6 @@ class RWorker : public ndb_thread {
 
   DISABLE_COPY_AND_ASSIGN(RWorker);
 };
-
 
 } // end namespace oltp
 } // end namespace nocc

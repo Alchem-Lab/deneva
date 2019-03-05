@@ -31,29 +31,22 @@
 #include "client_txn.h"
 #include "work_queue.h"
 
-#if USE_RDMA
-#include "ring_msg.h"
-#include "ud_msg.h"
+#if USE_RDMA == 1
+#include "ring_imm_msg_v2.h"
+#include "ud_msg_v2.h"
 #endif
 
 void InputThread::setup() {
-#if USE_RDMA
-  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL);
-#if USE_RC_RDMA
-  create_rdma_rc_raw_connections(rdma_buffer + HUGE_PAGE_SZ,
-                             tport_man.total_ring_sz,tport_man.ring_padding);
-#else
-  int total_connections = 1;
-  create_rdma_ud_raw_connections(total_connections);
-#endif
-  tport_man.msg_handlers.insert(std::make_pair(_thd_id, msg_handler_));
+#if USE_RDMA == 1
+  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL && msg_handler_ != NULL);
+  Transport::msg_handler = msg_handler_;
 #endif
 
   std::vector<Message*> * msgs;
   while(!simulation->is_setup_done()) {
 
-#if USE_RDMA
-    msgs = tport_man.recv_msg_rc_rdma(get_thd_id());
+#if USE_RDMA == 1
+    msgs = tport_man.recv_msg_rdma(get_thd_id());
 #else
     msgs = tport_man.recv_msg(get_thd_id());
 #endif
@@ -117,10 +110,10 @@ RC InputThread::client_recv_loop() {
     heartbeat();
     uint64_t starttime = get_sys_clock();
 
-#if USE_RDMA
-    msgs = tport_man.recv_msg_rc_rdma(get_thd_id());
+#if USE_RDMA == 1
+    msgs = tport_man.recv_msg_rdma(get_thd_id());
 #else
-		msgs = tport_man.recv_msg(get_thd_id());
+    msgs = tport_man.recv_msg(get_thd_id());
 #endif
 
     INC_STATS(_thd_id,mtx[28], get_sys_clock() - starttime);
@@ -171,10 +164,10 @@ RC InputThread::server_recv_loop() {
     heartbeat();
     starttime = get_sys_clock();
 
-#if USE_RDMA
-    msgs = tport_man.recv_msg_rc_rdma(get_thd_id());
+#if USE_RDMA == 1
+    msgs = tport_man.recv_msg_rdma(get_thd_id());
 #else
-		msgs = tport_man.recv_msg(get_thd_id());
+    msgs = tport_man.recv_msg(get_thd_id());
 #endif
 
     INC_STATS(_thd_id,mtx[28], get_sys_clock() - starttime);
@@ -214,16 +207,9 @@ RC InputThread::server_recv_loop() {
 }
 
 void OutputThread::setup() {
-#if USE_RDMA
-  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL);
-#if USE_RC_RDMA
-  create_rdma_rc_raw_connections(rdma_buffer + HUGE_PAGE_SZ,
-                             tport_man.total_ring_sz,tport_man.ring_padding);
-#else
-  int total_connections = 1;
-  create_rdma_ud_raw_connections(total_connections);
-#endif
-  tport_man.msg_handlers.insert(std::make_pair(_thd_id, msg_handler_));
+#if USE_RDMA == 1
+  assert(tport_man.rdmaCtrl != NULL && tport_man.rdma_buffer != NULL && msg_handler_ != NULL);
+  Transport::msg_handler = msg_handler_;
 #endif
 
   DEBUG_M("OutputThread::setup MessageThread alloc\n");
@@ -234,75 +220,146 @@ void OutputThread::setup() {
   }
 }
 
-#if USE_RDMA == 1
-bool InputThread::poll_comp_callback(char *msg,int from_nid,int from_tid) {
-  tport_man.recv_buffers[_thd_id] = msg;
-  return true;
-}
-
-void InputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding) {
-  assert(recv_msg_handler_ == NULL && msg_handler_ == NULL);
-  using namespace rdmaio::ringmsg;
-  msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
-                                 std::bind(&InputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
-}
-
-void InputThread::create_rdma_ud_raw_connections(int total_connections) {
-  int dev_id = cm_->get_active_dev(use_port_);
-  int port_idx = cm_->get_active_port(use_port_);
-
-  assert(recv_msg_handler_ == NULL && msg_handler_ == NULL); 
-  using namespace rdmaio::udmsg;
-  msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
-                           2048, // max concurrent msg received
-                           std::bind(&InputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
-                           dev_id,port_idx,1);
-}
-
-// OutputThread will never receive messages.
-bool OutputThread::poll_comp_callback(char *msg,int from_nid,int from_tid) {
-  assert(false);
-  return true;
-}
-
-void OutputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding) {
-  assert(send_msg_handler_ == NULL && msg_handler_ == NULL);
-  using namespace rdmaio::ringmsg;
-  msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
-                                 std::bind(&OutputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
-}
-
-void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
-  int dev_id = cm_->get_active_dev(use_port_);
-  int port_idx = cm_->get_active_port(use_port_);
-
-  assert(send_msg_handler_ == NULL && msg_handler_ == NULL); 
-  using namespace rdmaio::udmsg;
-  msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
-                           2048, // max concurrent msg received
-                           std::bind(&OutputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
-                           dev_id,port_idx,1);
-}
-
-#endif
-
 void OutputThread::run() {
 
   tsetup();
   printf("Running OutputThread %ld\n",_thd_id);
 
-	while (!simulation->is_done()) {
+  while (!simulation->is_done()) {
     heartbeat();
     messager->run();
   }
 
   printf("FINISH %ld:%ld\n",_node_id,_thd_id);
   fflush(stdout);
+
+  messager->fini();
   return;
 }
 
+#if USE_RDMA == 1
+
+void InputThread::init_communication_graph() {
+  unsigned my_id = _COMPACT_ENCODE_ID(_node_id, _thd_id);
+  cm_->comm_graph[my_id].clear();
+  for (uint i = 0; i < g_total_node_cnt; i++) {
+    int output_thread_id = 2;
+    if (i != _node_id) {
+      uint the_other_id = _COMPACT_ENCODE_ID(i, output_thread_id);
+      cm_->comm_graph[my_id].push_back(the_other_id);
+      /**
+         If that thread is located on another machine, 
+         the reverse edge is added since there won't be 
+         any communication for that thread to add its 
+         adj list to the comm_graph on this machine.
+      **/
+      cm_->comm_graph[the_other_id].push_back(my_id);
+    }
+  }
+}
+
+#if RAW_RDMA == 1
+// override the create_rdma_connections() function only when in RAW_RDMA mode.
+void InputThread::create_rdma_connections() {
+#if USE_UD_MSG == 1
+  int total_connections = 1;
+  create_rdma_ud_raw_connections(total_connections);
+#elif USE_RC_MSG == 1
+  create_rdma_rc_raw_connections(tport_man.rdma_buffer + HUGE_PAGE_SZ,
+                             tport_man.total_ring_sz,tport_man.ring_padding);
+#endif
+}
+
+bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
+  DEBUG("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
+  for (int i = 0; i < len; i++) {
+    DEBUG("0x%x ", (unsigned char)msg[i]);
+  }
+  DEBUG("\n");
+  tport_man.recv_buffers = (char*)mem_allocator.alloc(len+sizeof(uint32_t));
+  *((uint32_t *)tport_man.recv_buffers) = (uint32_t)len;
+  memcpy(tport_man.recv_buffers+sizeof(uint32_t), msg, len);
+  return true;
+}
+
+void InputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding) {
+  assert(msg_handler_ == NULL);
+  using namespace rdmaio::ring_imm_msg_v2;
+  msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
+                                 std::bind(&InputThread::poll_comp_callback, this,       \
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+}
+
+void InputThread::create_rdma_ud_raw_connections(int total_connections) {
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+
+  assert(msg_handler_ == NULL); 
+  using namespace rdmaio::udmsg_v2;
+  msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
+                           2048, // max concurrent msg received
+                           std::bind(&InputThread::poll_comp_callback,this,
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                           dev_id,port_idx,1);
+}
+
+#endif
+
+void OutputThread::init_communication_graph() {
+  uint my_id = _COMPACT_ENCODE_ID(_node_id, _thd_id);
+  cm_->comm_graph[my_id].clear();
+  for (uint i = 0; i < g_total_node_cnt; i++) {
+    const int input_thread_id = 1;
+    if (i != _node_id) {
+      uint the_other_id = _COMPACT_ENCODE_ID(i, input_thread_id);
+      cm_->comm_graph[my_id].push_back(the_other_id);
+      // If that thread is located on another machine, the reverse edge is added since
+      // there won't be any communication for that thread to add its adj list to the comm_graph on this machine.
+      cm_->comm_graph[the_other_id].push_back(my_id);
+    }
+  }
+}
+
+#if RAW_RDMA == 1
+// override the create_rdma_connections() function only when in RAW_RDMA mode.
+void OutputThread::create_rdma_connections() {
+#if USE_UD_MSG == 1
+  int total_connections = 1;
+  create_rdma_ud_raw_connections(total_connections);
+#elif USE_RC_MSG == 1
+  create_rdma_rc_raw_connections(tport_man.rdma_buffer + HUGE_PAGE_SZ,
+                             tport_man.total_ring_sz,tport_man.ring_padding);
+#endif
+}
+
+// OutputThread will never receive messages.
+bool OutputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
+  DEBUG("OutputThread: msg = %s of length %d from %d:%d", msg, len, from_nid, from_tid);
+  assert(false);
+  return true;
+}
+
+void OutputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding) {
+  assert(msg_handler_ == NULL);
+  using namespace rdmaio::ring_imm_msg_v2;
+  msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
+                                 std::bind(&OutputThread::poll_comp_callback, this,       \
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+}
+
+void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
+  int dev_id = cm_->get_active_dev(use_port_);
+  int port_idx = cm_->get_active_port(use_port_);
+
+  assert(msg_handler_ == NULL); 
+  using namespace rdmaio::udmsg_v2;
+  msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
+                           2048, // max concurrent msg received
+                           std::bind(&OutputThread::poll_comp_callback,this,
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                           dev_id,port_idx,1);
+}
+
+#endif // RAW_RDMA
+#endif // USE_RDMA
 

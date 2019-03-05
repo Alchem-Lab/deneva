@@ -75,7 +75,7 @@ namespace rdmaio {
       bool  try_recv_from(int from_mac,char *buffer);
       char *try_recv_from(int from_mac); // return: NULL no msg found, otherwise a pointer to the msg
 
-      void  poll_comps();
+      int  poll_comps();
 
       // if we receive one
       void inline __attribute__((always_inline))

@@ -72,42 +72,40 @@ uint64_t Thread::get_node_id() { return _node_id; }
 #if USE_RDMA == 1
 void Thread::tRDMAsetup() {
   BindToCore(worker_id_); // really specified to platforms
-  init_routines(server_routine);
 
-  DEBUG("init_routines done.\n");
+  init_routines(server_routine);
+  DEBUG("%ld:%ld init_routines done.\n", _node_id, _thd_id);
   init_rdma();
-  DEBUG("init_rdma done.\n");  
-  create_qps();
-  DEBUG("create_qps done\n");
-  
-#if USE_UD_MSG == 1
-  type = UD_MSG;
-  int total_connections = 1;
-  create_rdma_ud_connections(total_connections);
-#else
-  create_rdma_rc_connections(tport_man.rdma_buffer + HUGE_PAGE_SZ,
-                             tport_man.total_ring_sz, tport_man.ring_padding);
-#endif
+  DEBUG("%ld:%ld init_rdma done.\n", _node_id, _thd_id);
+  init_communication_graph();
+  DEBUG("%ld:%ld init_comm graph done.\n", _node_id, _thd_id);
+  pthread_barrier_wait( &warmup_bar );  // this barrier is a must
+  communication_graph_global_sync();
+  DEBUG("%ld:%ld comm graph global sync done.\n", _node_id, _thd_id);
+  create_qps_without_link_connect();
+  DEBUG("%ld:%ld create_qps done.\n", _node_id, _thd_id);
+  pthread_barrier_wait( &warmup_bar );
+  connect_all_links();
+  DEBUG("%ld:%ld connect all links done.\n", _node_id, _thd_id);
+  pthread_barrier_wait( &warmup_bar );
+  create_rdma_connections();
+  DEBUG("%ld:%ld create_rdma_connections done.\n", _node_id, _thd_id);
 
   this->thread_local_init();   // application specific init
   register_callbacks();
-
 }
 #endif
 
 void Thread::tsetup() {
-	printf("%ld:%ld Setup\n",_node_id, _thd_id);
-  fflush(stdout);
+	DEBUG("%ld:%ld Starting Setup\n",_node_id, _thd_id);
 	pthread_barrier_wait( &warmup_bar );
 #if USE_RDMA == 1
   tRDMAsetup();
-  printf("%ld:%ld RDMA setup done.\n",_node_id, _thd_id);
-  fflush(stdout);
-  pthread_barrier_wait( &warmup_bar );  
+  DEBUG("%ld:%ld RDMA setup done. \n",_node_id, _thd_id);
+  pthread_barrier_wait( &warmup_bar );
 #endif
   setup();
-	printf("All setup done. Running %ld:%ld\n",_node_id, _thd_id);
-  fflush(stdout);
+	DEBUG("%ld:%ld All setup done. Running.\n",_node_id, _thd_id);
 	pthread_barrier_wait( &warmup_bar );
 #if TIME_ENABLE
   run_starttime = get_sys_clock();
