@@ -114,10 +114,6 @@ void RWorker::init_rdma() {
   cm_->register_connect_mr(dev_id); // register memory on the specific device
 }
 
-void RWorker::communication_graph_global_sync() {
-  // do nothing for now.
-}
-
 void RWorker::create_qps(int num) {
 
   if(!USE_RDMA) {
@@ -151,6 +147,17 @@ void RWorker::create_qps_without_link_connect() {
 
   int dev_id = cm_->get_active_dev(use_port_);
   int port_idx = cm_->get_active_port(use_port_);
+
+  if (worker_id_ == 0) {
+    LOG(1) << "comm graph: ";
+    for (auto itr = cm_->comm_graph.begin(); itr != cm_->comm_graph.end(); ++itr) {
+      LOG(1) << std::hex << itr->first << " -> ";
+      for (auto iitr = itr->second.begin(); iitr != itr->second.end(); ++iitr) {
+        LOG(1) << std::hex << *iitr << " ";
+      }
+      LOG(1) << endl;
+    }
+  }
 
   uint id = _COMPACT_ENCODE_ID(cm_->get_nodeid(), worker_id_);
   if(cm_->comm_graph.find(id) == cm_->comm_graph.end()) {

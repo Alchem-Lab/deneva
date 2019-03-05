@@ -253,9 +253,10 @@ void InputThread::init_communication_graph() {
          any communication for that thread to add its 
          adj list to the comm_graph on this machine.
       **/
-      cm_->comm_graph[the_other_id].push_back(my_id);
+      // cm_->comm_graph[the_other_id].push_back(my_id);
     }
   }
+  cm_->comm_graph_ready[_thd_id] = true;
 }
 
 #if RAW_RDMA == 1
@@ -315,9 +316,11 @@ void OutputThread::init_communication_graph() {
       cm_->comm_graph[my_id].push_back(the_other_id);
       // If that thread is located on another machine, the reverse edge is added since
       // there won't be any communication for that thread to add its adj list to the comm_graph on this machine.
-      cm_->comm_graph[the_other_id].push_back(my_id);
+      // cm_->comm_graph[the_other_id].push_back(my_id);
     }
   }
+
+  cm_->comm_graph_ready[_thd_id] = true;
 }
 
 #if RAW_RDMA == 1

@@ -70,6 +70,30 @@ uint64_t Thread::get_thd_id() { return _thd_id; }
 uint64_t Thread::get_node_id() { return _node_id; }
 
 #if USE_RDMA == 1
+void Thread::communication_graph_global_sync() {
+  if (get_thd_id() == 0) {
+    for (uint64_t node = 0; node < g_total_node_cnt; ++node) {
+      if (node == get_node_id()) continue;
+
+      if (ISCLIENTN(node)) {
+        for (uint64_t tid = 0; tid < g_total_client_thread_cnt; ++tid) {
+          while(true) {
+              if(cm_->sync_comm_graph(node, tid)) break;
+              usleep(200000);
+          }
+        }
+      } else {
+        for (uint64_t tid = 0; tid < g_total_thread_cnt; ++tid) {
+          while(true) {
+              if(cm_->sync_comm_graph(node, tid)) break;
+              usleep(200000);
+          }
+        }          
+      }
+    }
+  }
+}
+
 void Thread::tRDMAsetup() {
   BindToCore(worker_id_); // really specified to platforms
 
@@ -82,6 +106,7 @@ void Thread::tRDMAsetup() {
   pthread_barrier_wait( &warmup_bar );  // this barrier is a must
   communication_graph_global_sync();
   DEBUG("%ld:%ld comm graph global sync done.\n", _node_id, _thd_id);
+  pthread_barrier_wait( &warmup_bar );  // this barrier is a must 
   create_qps_without_link_connect();
   DEBUG("%ld:%ld create_qps done.\n", _node_id, _thd_id);
   pthread_barrier_wait( &warmup_bar );

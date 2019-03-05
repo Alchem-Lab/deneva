@@ -710,16 +710,19 @@ void* RdmaCtrl::recv_thread(void *arg){
                     delete reply_buf;
                     break;
                 case COMM_ENTRY_REQUEST:
-
-                    reply_buf = new char[rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED];
+                    reply_buf = new char[sizeof(uint64_t)+rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED];
                     memset(reply_buf, 0, rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
-                    assert(rdma->comm_graph.find(id) != rdma->comm_graph.end() && rdma->comm_graph[id].size() > 0);
-                    for (int i = 0; i < rdma->comm_graph[id].size(); i++) {
-                        assert(rdma->comm_graph[id][i] < rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
-                        reply_buf[rdma->comm_graph[id][i]] = '1';
+                    if (!rdma->comm_graph_ready[_COMPACT_DECODE_THREAD(id)]) {  // entry not ready yet, reply -1 to indicate not ready.
+                        *((uint64_t*)reply_buf) = (uint64_t)-1;
+                    } else if(rdma->comm_graph.find(id) != rdma->comm_graph.end()) {
+                        *((uint64_t*)reply_buf) = rdma->comm_graph[id].size();
+                        for (int i = 0; i < rdma->comm_graph[id].size(); i++) {
+                            assert(rdma->comm_graph[id][i] < rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);
+                            reply_buf[sizeof(uint64_t) + rdma->comm_graph[id][i]] = '1';
+                        }
                     }
                     // reply with the comm_graph entries.
-                    PreConnector::send_to(csfd, reply_buf, rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);    
+                    PreConnector::send_to(csfd, reply_buf, sizeof(uint64_t) + rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED);    
                     PreConnector::wait_close(csfd); // wait for the client to close the connection
                     delete reply_buf;
                     break;        
@@ -779,11 +782,11 @@ bool RdmaCtrl::sync_comm_graph(int nid, int tid) {
         return false;
     }
 
-    int buf_size = rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED;
+    int buf_size = sizeof(uint64_t) + rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED;
     char *reply_buf = new char[buf_size];
 
     n = recv(socket,reply_buf,buf_size, MSG_WAITALL);
-    if(n != rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED) {
+    if(n != sizeof(uint64_t) + rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED) {
 
         shutdown(socket,SHUT_RDWR);
         close(socket);
@@ -797,8 +800,15 @@ bool RdmaCtrl::sync_comm_graph(int nid, int tid) {
     shutdown(socket,SHUT_RDWR);
     close(socket);
 
+    if (*((uint64_t*)reply_buf) == (uint64_t)-1) {
+        fprintf(stderr, "nid=%d, tid=%d's comm_graph entry not ready yet.\n", nid, tid);
+        return false;
+    }
+    if (*((uint64_t*)reply_buf) == 0)
+        return true;
+
     for (int i = 0; i < rdmaio::ring_imm_msg_v2::MSG_MAX_DESTS_SUPPORTED; i++) {
-        if (reply_buf[i] != 0) {
+        if (reply_buf[sizeof(uint64_t) + i] != 0) {
            comm_graph[_COMPACT_ENCODE_ID(nid,tid)].push_back(i);
         }
     }

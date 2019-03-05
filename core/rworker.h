@@ -72,7 +72,7 @@ class RWorker : public ndb_thread {
 
   virtual void init_communication_graph() = 0;
 
-  void communication_graph_global_sync();
+  virtual void communication_graph_global_sync() = 0;
   
   void create_qps(int num  = 0); // depends init_rdma
 

@@ -89,8 +89,8 @@ namespace rdmaio {
         uint64_t qid = cm_->get_rc_qid_v2(thread_id_, _COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]), 0);
         Qp *qp = cm_->get_qp(qid);
         assert(qp != NULL);
-        qp_vec_[qid]=qp;
-        init(qid);
+        qp_vec_[neighbors[i]]=qp;
+        init(neighbors[i]);
       }
     }
 
@@ -113,10 +113,10 @@ namespace rdmaio {
       assert(len <= ring_padding_);
 
       // get qp
-      uint64_t qid = cm_->get_rc_qid_v2(thread_id_, node, remote_thread, 0);
+      uint64_t id = _COMPACT_ENCODE_ID(node, remote_thread);
       fprintf(stderr, "%d:%d sending to %d:%d\n", node_id_, thread_id_, node, remote_thread);
-      assert(qp_vec_.find(qid) != qp_vec_.end() && qp_vec_[qid] != NULL);
-      Qp *qp = qp_vec_[qid];
+      assert(qp_vec_.find(id) != qp_vec_.end() && qp_vec_[id] != NULL);
+      Qp *qp = qp_vec_[id];
 
       // calculate send flag
       int send_flag = (len < 64) ? (IBV_SEND_INLINE) : 0;
@@ -189,62 +189,67 @@ namespace rdmaio {
 
     int RingMessage::poll_comps() {
       // assert(false);
-      // for(uint nid = 0; nid < num_nodes_; ++nid) {
-        const int send_node_id = 1-node_id_;
-        const int send_thread_id = 2;
-        uint64_t qid = cm_->get_rc_qid_v2(thread_id_, send_node_id, send_thread_id, 0);
-        int poll_result = ibv_poll_cq(qp_vec_[qid]->recv_cq, RC_MAX_SHARED_RECV_SIZE,wc_);
+
+      int poll_result = 0;
+      assert(cm_->comm_graph.find(_COMPACT_ENCODE_ID(node_id_, thread_id_)) != cm_->comm_graph.end());
+      auto nei = cm_->comm_graph[_COMPACT_ENCODE_ID(node_id_, thread_id_)];
+      for(auto itr = nei.begin(); itr != nei.end(); ++itr) {
+        const int send_node_id = _COMPACT_DECODE_MAC(*itr);
+        const int send_thread_id = _COMPACT_DECODE_THREAD(*itr);
+        // note that since recv_cqs are shared by all the qps created by the same thread,
+        // qp_vec_[id]->recv_cq is basically equivalent to qp_vec_[0]->recv_cq
+        uint64_t id = _COMPACT_ENCODE_ID(send_node_id, send_thread_id);
+        poll_result = ibv_poll_cq(qp_vec_[id]->recv_cq, RC_MAX_SHARED_RECV_SIZE,wc_);
 
         // prepare for replies
         assert(poll_result >= 0); // FIXME: ignore error
+        if (poll_result > 0) break;
+      }
 
-        for(uint i = 0;i < poll_result;++i) {
-          // msg_num: poll_result
+      for(uint i = 0;i < poll_result; ++i) {
+        // msg_num: poll_result
 
-          // if(wc_[i].status != IBV_WC_SUCCESS) assert(false); // FIXME!
-          if (wc_[i].status != IBV_WC_SUCCESS) {
-            fprintf (stderr,
-                 "got bad completion with status: 0x%x, vendor syndrome: 0x%x, with error %s\n",
-                 wc_[i].status, wc_[i].vendor_err,ibv_wc_status_str(wc_[i].status));
-            assert(false);
-          }
-
-          ImmMeta meta;
-          meta.content = wc_[i].imm_data;
-          uint32_t nid = meta.nid;
-          uint32_t tid = meta.tid;
-          uint32_t len = meta.size;
-          uint32_t ntid = _COMPACT_ENCODE_ID(nid, tid);
-          
-          char* msg;
-#if USE_SEND == 1
-          msg = (char*)wc_[i].wr_id;
-#else
-          msg = try_recv_from(nid, tid);
-#endif
-          callback_(msg, len, nid, tid);
-#if USE_SEND == 0
-          ack_msg(ntid, meta.size);
-#endif
-          idle_recv_nums_[ntid] += 1;
-          if(idle_recv_nums_[ntid] > max_idle_recv_num_) {
-            // printf("--posted :%d\n",idle_recv_nums_[nid]);
-            assert(nid == send_node_id);
-            assert(tid == send_thread_id);
-            post_recvs(idle_recv_nums_[ntid], qid);
-            idle_recv_nums_[ntid] = 0;
-          }
+        // if(wc_[i].status != IBV_WC_SUCCESS) assert(false); // FIXME!
+        if (wc_[i].status != IBV_WC_SUCCESS) {
+          fprintf (stderr,
+               "got bad completion with status: 0x%x, vendor syndrome: 0x%x, with error %s\n",
+               wc_[i].status, wc_[i].vendor_err,ibv_wc_status_str(wc_[i].status));
+          assert(false);
         }
 
-        return poll_result;
+        ImmMeta meta;
+        meta.content = wc_[i].imm_data;
+        uint32_t nid = meta.nid;
+        uint32_t tid = meta.tid;
+        uint32_t len = meta.size;
+        uint32_t ntid = _COMPACT_ENCODE_ID(nid, tid);
+        
+        char* msg;
+#if USE_SEND == 1
+        msg = (char*)wc_[i].wr_id;
+#else
+        msg = try_recv_from(nid, tid);
+#endif
+        callback_(msg, len, nid, tid);
+#if USE_SEND == 0
+        ack_msg(ntid, meta.size);
+#endif
+        idle_recv_nums_[ntid] += 1;
+        if(idle_recv_nums_[ntid] > max_idle_recv_num_) {
+          printf("--posted :%d\n",idle_recv_nums_[nid]);
+          // fprintf(stderr, "nid = %d, mac from qid = %d\n", nid, _QP_DECODE_MAC(qid));
+          // assert(nid == _QP_DECODE_MAC(qid));
+          // assert(tid == _QP_DECODE_THREAD(qid));
+          post_recvs(idle_recv_nums_[ntid], ntid);
+          idle_recv_nums_[ntid] = 0;
+        }
+      }
+
+      return poll_result;
     }
 
 
-    void RingMessage::init(uint32_t qid) {
-
-      int mac = _QP_DECODE_MAC(qid);
-      int thread = _QP_DECODE_THREAD(qid);
-      int ntid = _COMPACT_ENCODE_ID(mac, thread);
+    void RingMessage::init(uint32_t ntid) {
       struct ibv_recv_wr* rr = rrs_[ntid];
       struct ibv_sge* sge = sges_[ntid];
 
@@ -254,12 +259,12 @@ namespace rdmaio {
       for(int i = 0; i < max_recv_num_; i++) {
 #if USE_SEND == 1
         sge[i].length = recv_buf_size_;
-        sge[i].lkey   = qp_vec_[qid]->dev_->conn_buf_mr->lkey;
+        sge[i].lkey   = qp_vec_[ntid]->dev_->conn_buf_mr->lkey;
         sge[i].addr   = (uintptr_t)Rmalloc(recv_buf_size_);
         assert(sge[i].addr != 0);
 #else
         sge[i].length = 0;
-        sge[i].lkey   = qp_vec_[qid]->dev_->conn_buf_mr->lkey;
+        sge[i].lkey   = qp_vec_[ntid]->dev_->conn_buf_mr->lkey;
         sge[i].addr   = (uintptr_t)NULL;
 #endif
         rr[i].wr_id   = sge[i].addr;
@@ -274,14 +279,10 @@ namespace rdmaio {
       recv_heads_[ntid] = 0;
 
       // post these recvs
-      post_recvs(max_recv_num_, qid);
+      post_recvs(max_recv_num_, ntid);
     }
 
-    inline void RingMessage::post_recvs(int recv_num, uint32_t qid) {
-      int mac = _QP_DECODE_MAC(qid);
-      int thread = _QP_DECODE_THREAD(qid);
-      int ntid = _COMPACT_ENCODE_ID(mac, thread);
-
+    inline void RingMessage::post_recvs(int recv_num, uint32_t ntid) {
       int tail   = recv_heads_[ntid] + recv_num - 1;
       if(tail >= max_recv_num_) {
         tail -= max_recv_num_;
@@ -292,7 +293,7 @@ namespace rdmaio {
       ibv_recv_wr  *temp = tail_rr->next;
       tail_rr->next = NULL;
 
-      int rc = ibv_post_recv(qp_vec_[qid]->qp,head_rr,&bad_rr_);
+      int rc = ibv_post_recv(qp_vec_[ntid]->qp,head_rr,&bad_rr_);
       CE_1(rc, "[RingMessage] qp: Failed to post_recvs, %s\n", strerror(errno));
 
       tail_rr->next = temp; // restore the recv chain

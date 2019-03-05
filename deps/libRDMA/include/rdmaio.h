@@ -478,6 +478,7 @@ class RdmaCtrl {
     // Each vertex shall use the _COMPACT_ENCODE_ID macro to construct its ID from node_id and thread_id.
     std::map<uint, std::vector<uint> > comm_graph;
 
+    volatile bool comm_graph_ready[16] = {false};
     // which device and port to use
     int dev_id_;
 

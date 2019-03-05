@@ -122,6 +122,7 @@ bool Qp::connect_rc_specific() {
 	arg.sign = MAGIC_NUM;
     arg.tid  = rtid;
     arg.nid  = nid;
+    arg.conn_type = QP_ATTR_REQUEST;
 	arg.calculate_checksum();
 	//socket.send(request);
 
@@ -130,7 +131,7 @@ bool Qp::connect_rc_specific() {
 	auto socket = PreConnector::get_send_socket(network[nid],tcp_base_port);
 	if(socket < 0) {
 		// cannot establish the connection, shall retry
-		fprintf(stderr, "get send socket failed! socket error code = %d\n", socket);
+		// fprintf(stderr, "get send socket failed! socket error code = %d\n", socket);
 		return false;
 	}
 	auto n = send(socket,(char *)(&arg),sizeof(QPConnArg),0);

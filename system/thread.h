@@ -66,7 +66,10 @@ public:
         use_port_ = 0;
         return use_port_;
     }
-    virtual void init_communication_graph() {}
+    virtual void init_communication_graph() {
+        cm_->comm_graph_ready[_thd_id] = true;
+    }
+    void communication_graph_global_sync();
     virtual void create_rdma_connections() {}
 private:
   uint64_t prog_time;
