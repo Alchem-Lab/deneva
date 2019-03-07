@@ -272,11 +272,11 @@ void InputThread::create_rdma_connections() {
 }
 
 bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  DEBUG("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
-  for (int i = 0; i < len; i++) {
-    DEBUG("0x%x ", (unsigned char)msg[i]);
-  }
-  DEBUG("\n");
+  // DEBUG("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
+  // for (int i = 0; i < len; i++) {
+  //   DEBUG("0x%x ", (unsigned char)msg[i]);
+  // }
+  // DEBUG("\n");
   tport_man.recv_buffers = (char*)mem_allocator.alloc(len+sizeof(uint32_t));
   *((uint32_t *)tport_man.recv_buffers) = (uint32_t)len;
   memcpy(tport_man.recv_buffers+sizeof(uint32_t), msg, len);
@@ -337,7 +337,7 @@ void OutputThread::create_rdma_connections() {
 
 // OutputThread will never receive messages.
 bool OutputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  DEBUG("OutputThread: msg = %s of length %d from %d:%d", msg, len, from_nid, from_tid);
+  DEBUG_COMM("OutputThread: msg = %s of length %d from %d:%d", msg, len, from_nid, from_tid);
   assert(false);
   return true;
 }

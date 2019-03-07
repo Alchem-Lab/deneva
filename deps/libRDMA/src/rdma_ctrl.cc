@@ -334,7 +334,7 @@ Qp *RdmaCtrl::create_rc_qp_v2(int tid, int idx, int remote_id, int remote_thread
 
     res->init_rc(get_rdma_device(dev_id),port_idx);
     qps_.insert(std::make_pair(qid,res));
-    fprintf(stdout,"create qp tid=%d idx=%d remote_id=%d remote_thread_id=%d done %p\n",tid, idx, remote_id, remote_thread_id, res);
+    // fprintf(stdout,"create qp tid=%d idx=%d remote_id=%d remote_thread_id=%d done %p\n",tid, idx, remote_id, remote_thread_id, res);
     mtx_->unlock();
 
     // done
@@ -639,7 +639,7 @@ void* RdmaCtrl::recv_thread(void *arg){
             auto csfd = accept(listenfd,(struct sockaddr *) &cli_addr, &clilen);
             QPConnArg arg;
             auto accept_errno = errno;
-            fprintf(stderr, "accepted connection request from %s, errno=%d\n", inet_ntoa(cli_addr.sin_addr), accept_errno);
+            // fprintf(stderr, "accepted connection request from %s, errno=%d\n", inet_ntoa(cli_addr.sin_addr), accept_errno);
             if(!PreConnector::wait_recv(csfd)) {
                 close(csfd);
                 continue;
@@ -669,14 +669,13 @@ void* RdmaCtrl::recv_thread(void *arg){
 
                     rdma->mtx_->lock();
                     if(rdma->qps_.find(qid) == rdma->qps_.end()) {
-                        fprintf(stderr, "remote qp not found");
-                        if(IS_RC(qid)) {
-                            fprintf(stderr, "RCQP for remote node %d, thread_id == %d, idx = %d not found.\n", nid, tid, idx); 
-                        }
+                        // fprintf(stderr, "remote qp not found");
+                        // if(IS_RC(qid)) {
+                        //     fprintf(stderr, "RCQP for remote node %d, thread_id == %d, idx = %d not found.\n", nid, tid, idx); 
+                        // }
                         (*(QPReplyHeader *)(reply_buf)).status = QPNOTFOUND;
                     } else {
                         if(IS_UD(qid)) {
-                            fprintf(stderr, "qid is UD qid! Incorrect!.\n");
                             (*(QPReplyHeader *)(reply_buf)).qid = qid;
                             // further check whether receives are posted
                             Qp *ud_qp = rdma->qps_[qid];
@@ -801,7 +800,7 @@ bool RdmaCtrl::sync_comm_graph(int nid, int tid) {
     close(socket);
 
     if (*((uint64_t*)reply_buf) == (uint64_t)-1) {
-        fprintf(stderr, "nid=%d, tid=%d's comm_graph entry not ready yet.\n", nid, tid);
+        // fprintf(stderr, "nid=%d, tid=%d's comm_graph entry not ready yet.\n", nid, tid);
         return false;
     }
     if (*((uint64_t*)reply_buf) == 0)
