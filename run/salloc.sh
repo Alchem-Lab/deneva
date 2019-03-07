@@ -17,8 +17,8 @@ if [ x$2 != "x" ];then
 else
 	LAST_HOST=16
 	FIRST_HOST=`echo $LAST_HOST - $HOST_CNT + 1 | bc`
-	HOSTS_CSV=`seq -s, -f"nerv%.0f" $LAST_HOST -1 $FIRST_HOST`
-	HOSTS=`seq -f"nerv%.0f" $LAST_HOST -1 $FIRST_HOST`
+	HOSTS_CSV=`seq -s, -f"nerv%.0f" $FIRST_HOST 1 $LAST_HOST`
+	HOSTS=`seq -f"nerv%.0f" $FIRST_HOST 1 $LAST_HOST`
 
 	for HOSTNAME in ${HOSTS}; do
 	#  grep "\b${HOSTNAME}\b" /etc/hosts | awk '{print $1}' >> ${IFCONFIG_PATH}
