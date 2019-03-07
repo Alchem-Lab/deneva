@@ -1,20 +1,10 @@
 #!/bin/bash
 
-srun hostname -s | sort -n > slurm.hosts
+IFCONFIG_PATH="../ifconfig.txt"
 USERNAME=$USER
-HOSTS=`cat slurm.hosts`
+HOSTS=`cat $IFCONFIG_PATH`
 NODE_CNT="$1"
 count=0
-
-#generate ifconfig.txt
-IFCONFIG_PATH="../ifconfig.txt"
-if [ -f ${IFCONFIG_PATH} ]; then
-  rm -fr ${IFCONFIG_PATH}
-fi
-for HOSTNAME in ${HOSTS}; do
-#  grep "\b${HOSTNAME}\b" /etc/hosts | awk '{print $1}' >> ${IFCONFIG_PATH}
-  echo ${HOSTNAME}  >> ${IFCONFIG_PATH}
-done
 
 #run the distributed DBMS
 for HOSTNAME in ${HOSTS}; do
@@ -26,7 +16,6 @@ for HOSTNAME in ${HOSTS}; do
     echo "${HOSTNAME}: rundb -nid${count}"
   fi
 	ssh -n -o BatchMode=yes -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}" &
-	# ssh -n -l ${USERNAME} ${HOSTNAME} "echo ${HOSTNAME}" &
 	count=`expr $count + 1`
 done
 

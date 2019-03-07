@@ -1,14 +1,32 @@
 #!/bin/bash
 
-if [ x$1 == 'x' -o x$2 == 'x' ]; then
-	echo "Two arguments required!"
-	echo "argument-1 is the number of nodes in the cluster including both servers and clients." 
-	echo "argument-2 is the number of server nodes."
-	exit
+HOST_CNT=2
+if [ x$1 != "x" ];then
+	HOST_CNT=$1
 fi
 
-if [ x$3 == 'x' ]; then
-    salloc -N $1 -t 00:05:00 ./run.sh $2
+SERV_CNT=1
+if [ x$2 != "x" ];then
+	SERV_CNT=$2
+fi
+
+IFCONFIG_PATH="../ifconfig.txt"
+if [ -f ${IFCONFIG_PATH} ]; then
+  rm -fr ${IFCONFIG_PATH}
+fi
+
+TIME_ALLOC='00:5:00'
+if [ x$3 != 'x' ]; then
+    	echo $3 | sed 's/,/\n/g' >> ${IFCONFIG_PATH}
+   	salloc -N $1 -t $TIME_ALLOC --nodelist=$3 ./run.sh $2
 else
-    salloc -N $1 -t 00:05:00 --nodelist=$3 ./run.sh $2 
+	LAST_HOST=16
+	FIRST_HOST=`echo $LAST_HOST - $HOST_CNT + 1 | bc`
+	HOSTS_CSV=`seq -s, -f"nerv%.0f" $FIRST_HOST 1 $LAST_HOST`
+	HOSTS=`seq -f"nerv%.0f" $FIRST_HOST 1 $LAST_HOST`
+	for HOSTNAME in ${HOSTS}; do
+	  echo ${HOSTNAME}  >> ${IFCONFIG_PATH}
+	done
+    	
+	salloc -N $1 -t $TIME_ALLOC --nodelist=$HOSTS_CSV ./run.sh $2
 fi
