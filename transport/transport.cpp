@@ -361,9 +361,9 @@ void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_n
   uint64_t starttime = get_sys_clock();
   assert(msg_handler != NULL);
   // for (int i = 0; i < size; i++) {
-  //   DEBUG("0x%x ", ((unsigned char*)sbuf)[i]);
+  //   DEBUG_COMM("0x%x ", ((unsigned char*)sbuf)[i]);
   // }
-  // DEBUG("\n");
+  // DEBUG_COMM("\n");
   msg_handler->send_to(dest_node_id, dest_thread_id, (char*)sbuf, size);
   DEBUG_COMM("%ld Batch of %d bytes sent to node %ld, thread %ld\n",send_thread_id,size,dest_node_id, dest_thread_id);
   INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
