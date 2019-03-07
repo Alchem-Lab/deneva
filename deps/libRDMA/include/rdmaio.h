@@ -379,7 +379,7 @@ class RdmaCtrl {
     inline Qp *get_rc_qp_v2(int tid,int remote_id, int remote_thread_id, int idx = 0) {
         mtx_->lock();
         uint64_t qid = (uint64_t)(_QP_ENCODE_ID_V2(remote_id, remote_thread_id, RC_ID_BASE + tid * num_rc_qps_+ idx));
-        fprintf(stdout,"find qp %d %d %d %d, qid %lu\n",tid, remote_id, remote_thread_id, idx, qid);
+        // fprintf(stdout,"find qp %d %d %d %d, qid %lu\n",tid, remote_id, remote_thread_id, idx, qid);
         assert(qps_.find(qid) != qps_.end());
         if(qps_.find(qid) == qps_.end()) { mtx_->unlock(); return NULL;}
         Qp *res = qps_[qid];

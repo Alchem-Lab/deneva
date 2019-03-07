@@ -30,10 +30,10 @@ void MessageThread::init(uint64_t thd_id, uint64_t recv_thd_id) {
 #if CC_ALG == CALVIN
   buffer_cnt++;
 #endif
-  DEBUG_M("MessageThread::init buffer[] alloc\n");
+  // DEBUG("MessageThread::init buffer[] alloc\n");
   buffer = (mbuf **) mem_allocator.align_alloc(sizeof(mbuf*) * buffer_cnt);
   for(uint64_t n = 0; n < buffer_cnt; n++) {
-    DEBUG_M("MessageThread::init mbuf alloc\n");
+    // DEBUG("MessageThread::init mbuf alloc\n");
     buffer[n] = (mbuf *)mem_allocator.align_alloc(sizeof(mbuf));
     buffer[n]->init(n);
     buffer[n]->reset(n);
@@ -60,10 +60,10 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
 #if USE_RDMA == 1
-    DEBUG("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
+    DEBUG_COMM("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
     tport_man.send_msg_to_thread_rdma(_thd_id, dest_node_id, _recv_thd_id, sbuf->buffer,sbuf->ptr);
 #else
-    DEBUG("Send batch of %ld msgs to %ld\n",sbuf->cnt,dest_node_id);
+    DEBUG_COMM("Send batch of %ld msgs to %ld\n",sbuf->cnt,dest_node_id);
     tport_man.send_msg(_thd_id,dest_node_id,sbuf->buffer,sbuf->ptr);
 #endif
 
