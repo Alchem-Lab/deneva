@@ -37,7 +37,7 @@ struct mbuf {
 #if USE_RDMA == 1
     buffer = (char*)Rmalloc(sizeof(char)*g_msg_size);    
 #else
-    buffer = (char*)nn_allocmsg(g_msg_size,0);
+    buffer = (char*)nn::allocmsg(g_msg_size,0);
 #endif
   }
   void reset(uint64_t dest_id) {
@@ -73,7 +73,7 @@ struct mbuf {
 #if USE_RDMA == 1
     Rfree(buffer);    
 #else
-    freemsg(buffer);
+    nn::freemsg(buffer);
 #endif    
   }
 };
