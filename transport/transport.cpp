@@ -35,8 +35,10 @@
 
 #define MAX_IFADDR_LEN 20 // max # of characters in name of address
 
+#if USE_RDMA == 1
 __thread rdmaio::MsgHandler* Transport::msg_handler = NULL;
 __thread char* Transport::recv_buffers = NULL;
+#endif
 
 std::string Transport::host_to_ip(const std::string &host) {
     std::string res = "";

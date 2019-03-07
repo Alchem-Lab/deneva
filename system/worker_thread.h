@@ -19,12 +19,13 @@
 
 #include "global.h"
 
-using namespace nocc::oltp;
 class Workload;
 class Message;
 
 #if USE_RDMA == 1
 #include "rdmaio.h"
+// using namespace nocc::oltp;
+
 class WorkerThread : public Thread {
 public:
     WorkerThread(int worker_id, rdmaio::RdmaCtrl *cm, int seed = 0) : Thread(worker_id, cm, seed) {}
