@@ -85,7 +85,7 @@ namespace rdmaio {
 
       std::vector<uint> neighbors = (cm->comm_graph)[id];
       for (uint i = 0; i < neighbors_cnt; i++) {
-        fprintf(stderr, "[RingMessage]-%d:%d adding %d:%d to qp_vec_.\n", node_id_, thread_id_, _COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]));
+        // fprintf(stderr, "[RingMessage]-%d:%d adding %d:%d to qp_vec_.\n", node_id_, thread_id_, _COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]));
         uint64_t qid = cm_->get_rc_qid_v2(thread_id_, _COMPACT_DECODE_MAC(neighbors[i]), _COMPACT_DECODE_THREAD(neighbors[i]), 0);
         Qp *qp = cm_->get_qp(qid);
         assert(qp != NULL);
@@ -106,15 +106,15 @@ namespace rdmaio {
       assert(offset_idx < 256);
       uint64_t offset = base_offset_[offset_idx] + _COMPACT_ENCODE_ID(node_id_, thread_id_) * (total_buf_size_ + MSG_META_SZ) +
         (offsets_[offset_idx] % ring_size_) + MSG_META_SZ;
-      printf("%d:%d send_to() base_offset: %lu send_offset: %lu to: %d, r_off:%lu\n",node_id_, thread_id_, base_offset_[offset_idx], _COMPACT_ENCODE_ID(node_id_, thread_id_) * (total_buf_size_ + MSG_META_SZ) +
-         (offsets_[offset_idx] % ring_size_), node, offset);
+      // printf("%d:%d send_to() base_offset: %lu send_offset: %lu to: %d, r_off:%lu\n",node_id_, thread_id_, base_offset_[offset_idx], _COMPACT_ENCODE_ID(node_id_, thread_id_) * (total_buf_size_ + MSG_META_SZ) +
+         // (offsets_[offset_idx] % ring_size_), node, offset);
       offsets_[offset_idx] += len;
       
       assert(len <= ring_padding_);
 
       // get qp
       uint64_t id = _COMPACT_ENCODE_ID(node, remote_thread);
-      fprintf(stderr, "%d:%d sending to %d:%d\n", node_id_, thread_id_, node, remote_thread);
+      // fprintf(stderr, "%d:%d sending to %d:%d\n", node_id_, thread_id_, node, remote_thread);
       assert(qp_vec_.find(id) != qp_vec_.end() && qp_vec_[id] != NULL);
       Qp *qp = qp_vec_[id];
 
@@ -181,7 +181,7 @@ namespace rdmaio {
       assert(offset_idx < 256);
       uint64_t poll_offset = offset_idx * (total_buf_size_ + MSG_META_SZ) + headers_[offset_idx] % ring_size_;
 
-      fprintf(stderr, "%d:%d try_recv_from address: base_offset_=%d, poll_offset=%lu\n", node_id_, thread_id_, base_ptr_ - start_ptr, poll_offset);
+      // fprintf(stderr, "%d:%d try_recv_from address: base_offset_=%d, poll_offset=%lu\n", node_id_, thread_id_, base_ptr_ - start_ptr, poll_offset);
       return base_ptr_ + poll_offset + MSG_META_SZ;
     }
 
@@ -236,7 +236,7 @@ namespace rdmaio {
 #endif
         idle_recv_nums_[ntid] += 1;
         if(idle_recv_nums_[ntid] > max_idle_recv_num_) {
-          printf("--posted :%d\n",idle_recv_nums_[nid]);
+          // printf("--posted :%d\n",idle_recv_nums_[nid]);
           // fprintf(stderr, "nid = %d, mac from qid = %d\n", nid, _QP_DECODE_MAC(qid));
           // assert(nid == _QP_DECODE_MAC(qid));
           // assert(tid == _QP_DECODE_THREAD(qid));
