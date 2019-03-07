@@ -341,11 +341,11 @@ enum PPSTxnType {PPS_ALL = 0,
 #define IDX_VERB          false
 #define VERB_ALLOC          true
 
-#define DEBUG_LOCK            true
+#define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false
 #define DEBUG_ASSERT          false
-#define DEBUG_DISTR           true
+#define DEBUG_DISTR           false
 #define DEBUG_COMMUNICATION   false
 #define DEBUG_ALLOC           false
 #define DEBUG_RACE            false
