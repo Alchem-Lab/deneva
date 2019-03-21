@@ -22,24 +22,52 @@
 #include "query.h"
 #include "message.h"
 
+#include <netdb.h> //hostent
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <sys/time.h>
 
 #define MAX_IFADDR_LEN 20 // max # of characters in name of address
+
+std::string Transport::host_to_ip(const std::string &host) {
+    std::string res = "";
+
+    struct addrinfo hints, *infoptr;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET; // AF_INET means IPv4 only addresses
+
+    int result = getaddrinfo(host.c_str(), NULL, &hints, &infoptr);
+    if (result) {
+      fprintf(stderr, "getaddrinfo: %s at %s\n", gai_strerror(result),host.c_str());
+      return "";
+    }
+    char ip[64]; memset(ip,0,sizeof(ip));
+
+    for(struct addrinfo *p = infoptr; p != NULL; p = p->ai_next) {
+      getnameinfo(p->ai_addr, p->ai_addrlen, ip, sizeof(ip), NULL, 0, NI_NUMERICHOST);
+    }
+
+    return string(ip);
+}
 
 void Transport::read_ifconfig(const char * ifaddr_file) {
 
 	ifaddr = new char *[g_total_node_cnt];
+  hosts = new char *[g_total_node_cnt];
 
-	uint64_t cnt = 0;
+  uint64_t cnt = 0;
   printf("Reading ifconfig file: %s\n",ifaddr_file);
-	ifstream fin(ifaddr_file);
-	string line;
+  ifstream fin(ifaddr_file);
+  string line;
   while (getline(fin, line)) {
-		//memcpy(ifaddr[cnt],&line[0],12);
-		ifaddr[cnt] = new char[line.length()+1];
-    strcpy(ifaddr[cnt],&line[0]);
-		printf("%ld: %s\n",cnt,ifaddr[cnt]);
-		cnt++;
-	}
+    hosts[cnt] = new char[line.length()+1];
+    strcpy(hosts[cnt], line.c_str());
+    std::string ip = host_to_ip(line);
+    ifaddr[cnt] = new char[ip.length()+1];
+    strcpy(ifaddr[cnt],ip.c_str());
+    printf("%ld: %s\n",cnt,ifaddr[cnt]);
+    cnt++;
+  }
   assert(cnt == g_total_node_cnt);
 }
 

@@ -3,17 +3,22 @@ CFLAGS=-Wall -g -gdwarf-3 -std=c++0x
 #CFLAGS += -fsanitize=address -fno-omit-frame-pointer 
 JEMALLOC=$(HOME)/install/jemalloc-5.1.0/
 NNMSG=$(HOME)/install/nanomsg-1.1.4/
+ROCC_ROOT=$(HOME)/git_repos/rocc/
+BOOST=$(ROCC_ROOT)/third_party/boost/
 
 .SUFFIXES: .o .cpp .h
 
 SRC_DIRS = ./ ./benchmarks/ ./client/ ./concurrency_control/ ./storage/ ./transport/ ./system/ ./statistics/#./unit_tests/
-DEPS = -I. -I./benchmarks -I./client/ -I./concurrency_control -I./storage -I./transport -I./system -I./statistics -I$(JEMALLOC)/include -I$(NNMSG)/include #-I./unit_tests 
+DEPS = -I. -I./benchmarks -I./client/ -I./concurrency_control -I./storage -I./transport -I./system -I./statistics -I$(BOOST)/include -I$(JEMALLOC)/include -I$(NNMSG)/include #-I./unit_tests 
 
 CFLAGS += $(DEPS) -D NOGRAPHITE=1 -Werror -Wno-sizeof-pointer-memaccess
-LDFLAGS = -Wall -L. -L$(NNMSG)/lib64 -L$(JEMALLOC)/lib -Wl,-rpath,$(JEMALLOC)/lib -pthread -gdwarf-3 -lrt -std=c++0x
+LDFLAGS = -Wall -L. -L$(NNMSG)/lib64 -L$(JEMALLOC)/lib -Wl,-rpath,$(JEMALLOC)/lib -Wl,-rpath,$(NNMSG)/lib64 -pthread -gdwarf-3 -lrt -std=c++0x
 #LDFLAGS = -Wall -L. -L$(NNMSG) -L$(JEMALLOC)/lib -Wl,-rpath,$(JEMALLOC)/lib -pthread -gdwarf-3 -lrt -std=c++11
-LDFLAGS += $(CFLAGS)
-LIBS = -lnanomsg -lanl -ljemalloc -ldl
+LDFLAGS += -L$(BOOST)/lib $(CFLAGS)
+
+BOOSTLIBS=$(BOOST)/lib/libboost_coroutine.a $(BOOST)/lib/libboost_chrono.a $(BOOST)/lib/libboost_thread.a $(BOOST)/lib/libboost_context.a $(BOOST)/lib/libboost_system.a
+LIBS = -lnanomsg -lanl -ljemalloc -ldl -lrt -rdynamic $(BOOSTLIBS)
+
 
 DB_MAINS = ./client/client_main.cpp ./system/sequencer_main.cpp ./unit_tests/unit_main.cpp
 CL_MAINS = ./system/main.cpp ./system/sequencer_main.cpp ./unit_tests/unit_main.cpp
@@ -45,7 +50,7 @@ unit_test :  $(OBJS_UNIT)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 ./obj/%.o: transport/%.cpp
 #	$(CC) -static -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
-	$(CC) -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: unit_tests/%.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: benchmarks/%.cpp
@@ -63,10 +68,10 @@ unit_test :  $(OBJS_UNIT)
 
 
 rundb : $(OBJS_DB)
-	$(CC) -static -o $@ $^ $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 #	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 ./obj/%.o: transport/%.cpp
-	$(CC) -static -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 #	$(CC) -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
 #./deps/%.d: %.cpp
 #	$(CC) -MM -MT $*.o -MF $@ $(CFLAGS) $<
@@ -87,10 +92,10 @@ rundb : $(OBJS_DB)
 
 
 runcl : $(OBJS_CL)
-	$(CC) -static -o $@ $^ $(LDFLAGS) $(LIBS)
+	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 #	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)
 ./obj/%.o: transport/%.cpp
-	$(CC) -static -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
+	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 #	$(CC) -c $(CFLAGS) $(INCLUDE) $(LIBS) -o $@ $<
 #./deps/%.d: %.cpp
 #	$(CC) -MM -MT $*.o -MF $@ $(CFLAGS) $<

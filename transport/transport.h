@@ -45,6 +45,7 @@ class Socket {
 };
 
 class Transport {
+  std::string host_to_ip(const std::string &host);
 	public:
 		void read_ifconfig(const char * ifaddr_file);
 		void init();
@@ -70,6 +71,7 @@ class Transport {
     uint64_t _sock_cnt;
     uint64_t _s_cnt;
 		char ** ifaddr;
+    char ** hosts;
     int * endpoint_id;
 
 };
