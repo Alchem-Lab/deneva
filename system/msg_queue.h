@@ -39,6 +39,7 @@ public:
   void init();
   void enqueue(uint64_t thd_id, Message * msg, uint64_t dest);
   uint64_t dequeue(uint64_t thd_id, Message *& msg);
+  bool allQEmpty();
 private:
  //LockfreeQueue m_queue;
 // This is close to max capacity for boost

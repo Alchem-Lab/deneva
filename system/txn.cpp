@@ -425,7 +425,7 @@ void TxnManager::reset_query() {
 }
 
 RC TxnManager::commit() {
-  DEBUG("Commit %ld\n",get_txn_id());
+  DEBUG_TXN("Commit %ld\n",get_txn_id());
   release_locks(RCOK);
 #if CC_ALG == MAAT
   time_table.release(get_thd_id(),get_txn_id());
@@ -445,7 +445,7 @@ RC TxnManager::commit() {
 RC TxnManager::abort() {
   if(aborted)
     return Abort;
-  DEBUG("Abort %ld\n",get_txn_id());
+  DEBUG_TXN("Abort %ld\n",get_txn_id());
   txn->rc = Abort;
   INC_STATS(get_thd_id(),total_txn_abort_cnt,1);
   txn_stats.abort_cnt++;
@@ -486,7 +486,7 @@ RC TxnManager::abort() {
 
 RC TxnManager::start_abort() {
   txn->rc = Abort;
-  DEBUG("%ld start_abort\n",get_txn_id());
+  DEBUG_TXN("%ld start_abort\n",get_txn_id());
   if(query->partitions_touched.size() > 1) {
     send_finish_messages();
     abort();
@@ -497,7 +497,7 @@ RC TxnManager::start_abort() {
 
 RC TxnManager::start_commit() {
   RC rc = RCOK;
-  DEBUG("%ld start_commit RO?%d\n",get_txn_id(),query->readonly());
+  DEBUG_TXN("%ld start_commit RO?%d, is_multi_part?%d\n",get_txn_id(),query->readonly(), is_multi_part());
   if(is_multi_part()) {
     if(!query->readonly() || CC_ALG == OCC || CC_ALG == MAAT) {
       // send prepare messages

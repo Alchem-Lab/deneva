@@ -147,6 +147,7 @@ namespace rdmaio {
       meta.size = len;
       meta.cid = 0;
       
+      // fprintf(stderr, "sending txn id: %lu of type %d\n", *(uint64_t*)(msgp + 4*sizeof(int32_t)), *(int32_t*)(msgp + 3*sizeof(int32_t)));
       ret |= qp->rc_post_send(op,msgp,len, offset,send_flag,0,meta.content);
 
 #if FORCE_REPLY == 1
@@ -230,6 +231,7 @@ namespace rdmaio {
 #else
         msg = try_recv_from(nid, tid);
 #endif
+        // fprintf(stderr, "receving txn id: %lu of type %d\n", *(uint64_t*)(msg + 4*sizeof(int32_t)), *(int32_t*)(msg + 3*sizeof(int32_t)));        
         callback_(msg, len, nid, tid);
 #if USE_SEND == 0
         ack_msg(ntid, meta.size);

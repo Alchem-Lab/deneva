@@ -37,7 +37,7 @@
 
 #if USE_RDMA == 1
 __thread rdmaio::MsgHandler* Transport::msg_handler = NULL;
-__thread char* Transport::recv_buffers = NULL;
+__thread std::queue<char*>* Transport::recv_buffers = NULL;
 #endif
 
 std::string Transport::host_to_ip(const std::string &host) {
@@ -437,30 +437,38 @@ std::vector<Message*> * Transport::recv_msg(uint64_t thd_id) {
 
 #if USE_RDMA == 1
 std::vector<Message*> * Transport::recv_msg_rdma(uint64_t thd_id) {
-  char* buf = NULL;
   uint64_t starttime = get_sys_clock();
-  recv_buffers = NULL;
-  std::vector<Message*> * msgs = NULL;
+  std::vector<Message*> * all_msgs = NULL;
   assert(msg_handler != NULL);
+  assert(recv_buffers != NULL && recv_buffers->empty());
   if(msg_handler != NULL)
     msg_handler->poll_comps(); // poll rpcs requests/replies
-  buf = recv_buffers;
-  if (buf == NULL) {
+
+  if (recv_buffers->empty()) {
     INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
-    return msgs;    
+    return all_msgs;    
   }
 
   INC_STATS(thd_id,msg_recv_time, get_sys_clock() - starttime);
   INC_STATS(thd_id,msg_recv_cnt,1);
   starttime = get_sys_clock();
 
-  msgs = Message::create_messages(buf+sizeof(uint32_t));
-  DEBUG_COMM("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,simulation->seconds_from_start(get_sys_clock()));
+  all_msgs = new std::vector<Message*>;
+  while (!recv_buffers->empty()) {
+    char* buf = recv_buffers->front();
+    assert(buf != NULL);
+    std::vector<Message*> * msgs = Message::create_messages(buf+sizeof(uint32_t));
+    DEBUG_COMM("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,
+                                                                 simulation->seconds_from_start(get_sys_clock()));
+    all_msgs->insert(all_msgs->end(), msgs->begin(), msgs->end());
+    mem_allocator.free(buf, *(uint32_t*)buf);
+    recv_buffers->pop();
+  }
+  
   INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
-  mem_allocator.free(recv_buffers, *(uint32_t*)recv_buffers);
-  recv_buffers = NULL;
-  return msgs;
+  return all_msgs;
 }
+
 #endif
 /*
 void Transport::simple_send_msg(int size) {

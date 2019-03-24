@@ -60,6 +60,17 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
 #if USE_RDMA == 1
+    // The following debug information can only be used when the assertions are removed
+    // in the create_messages() function.
+    //
+    // std::vector<Message*> * msgs = NULL;
+    // msgs = Message::create_messages(sbuf->buffer);
+    // while (!msgs->empty()) {
+    //   if (msgs->front()->rtype == CL_RSP)
+    //     fprintf(stderr, "txn %lu of type %d going to sent.\n", msgs->front()->txn_id, msgs->front()->rtype);
+    //   msgs->erase(msgs->begin());
+    // }
+
     DEBUG_COMM("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
     tport_man.send_msg_to_thread_rdma(_thd_id, dest_node_id, _recv_thd_id, sbuf->buffer,sbuf->ptr);
 #else
@@ -99,9 +110,15 @@ void MessageThread::run() {
 
   sbuf = buffer[dest_node_id];
 
+  // if (msg->rtype == CL_RSP) {
+  //   fprintf(stderr, "%ld Msg %d Dequeued, (%ld,%ld) to %ld\n",_thd_id,msg->rtype,msg->txn_id,msg->batch_id,dest_node_id);    
+  // }
+
   if(!sbuf->fits(msg->get_size())) {
     assert(sbuf->cnt > 0);
     send_batch(dest_node_id);
+  } else {
+    DEBUG_COMM("%ld Msg %d to %ld buffered.\n", _thd_id,msg->rtype, dest_node_id);
   }
 
   uint64_t copy_starttime = get_sys_clock();

@@ -26,6 +26,8 @@ void AbortThread::setup() {
 void AbortThread::run() {
   tsetup();
   printf("Running AbortThread %ld\n",_thd_id);
+  fflush(stdout);
+  
 	while (!simulation->is_done()) {
     heartbeat();
     abort_queue.process(get_thd_id());

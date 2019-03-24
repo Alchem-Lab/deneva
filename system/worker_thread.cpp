@@ -144,7 +144,7 @@ void WorkerThread::commit() {
   assert(IS_LOCAL(txn_man->get_txn_id()));
 
   uint64_t timespan = get_sys_clock() - txn_man->txn_stats.starttime;
-  DEBUG("COMMIT %ld %f -- %f\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),(double)timespan/ BILLION);
+  DEBUG_TXN("COMMIT %ld %f -- %f\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),(double)timespan/ BILLION);
 
   // Send result back to client
 #if !SERVER_GENERATE_QUERIES
@@ -158,7 +158,7 @@ void WorkerThread::commit() {
 
 void WorkerThread::abort() {
 
-  DEBUG("ABORT %ld -- %f\n",txn_man->get_txn_id(),(double)get_sys_clock() - run_starttime/ BILLION);
+  DEBUG_TXN("ABORT %ld -- %f\n",txn_man->get_txn_id(),(double)get_sys_clock() - run_starttime/ BILLION);
   // TODO: TPCC Rollback here
 
   ++txn_man->abort_cnt;
@@ -182,6 +182,7 @@ TxnManager * WorkerThread::get_transaction_manager(Message * msg) {
 void WorkerThread::run() {
   tsetup();
   printf("Running WorkerThread %ld\n",_thd_id);
+  fflush(stdout);
 
   uint64_t ready_starttime;
   uint64_t idle_starttime = 0;
@@ -481,12 +482,12 @@ RC WorkerThread::process_rtxn(Message * msg) {
           txn_man->txn_stats.starttime = get_sys_clock();
           txn_man->txn_stats.restart_starttime = txn_man->txn_stats.starttime;
           msg->copy_to_txn(txn_man);
-          DEBUG("START %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
+          DEBUG_TXN("START %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
           INC_STATS(get_thd_id(),local_txn_start_cnt,1);
 
         } else {
             txn_man->txn_stats.restart_starttime = get_sys_clock();
-          DEBUG("RESTART %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
+          DEBUG_TXN("RESTART %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
         }
 
           // Get new timestamps

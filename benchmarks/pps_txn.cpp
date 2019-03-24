@@ -101,7 +101,7 @@ RC PPSTxnManager::run_txn() {
        state == PPS_UPDATEPART0 
        )) {
     DEBUG("Running txn %ld, type %d\n",txn->txn_id,((PPSQuery*)query)->txn_type);
-#if DISTR_DEBUG
+#if DEBUG_DISTR
     query->print();
 #endif
     query->partitions_touched.add_unique(GET_PART_ID(0,g_node_id));

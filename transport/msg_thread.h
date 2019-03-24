@@ -65,9 +65,10 @@ struct mbuf {
   bool ready() {
     if(cnt == 0)
       return false;
-    if( (get_sys_clock() - starttime) >= g_msg_time_limit )
-      return true;
-    return false;
+    // if( (get_sys_clock() - starttime) >= g_msg_time_limit )
+    //   return true;
+    // return false;
+    return true;
   }
   void fini() {
 #if USE_RDMA == 1

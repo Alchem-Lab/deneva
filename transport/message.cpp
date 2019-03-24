@@ -170,7 +170,9 @@ Message * Message::create_message(RemReqType rtype) {
     case CL_RSP:
       msg = new ClientResponseMessage;
       break;
-    default: assert(false);
+    default: 
+      fprintf(stderr, "msg type %d unknown.\n", rtype);
+      assert(false);
   }
   assert(msg);
   msg->rtype = rtype;

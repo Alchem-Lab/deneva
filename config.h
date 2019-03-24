@@ -157,9 +157,6 @@
 #define TPORT_TYPE TCP
 #define TPORT_PORT 17000
 #define SET_AFFINITY true
-#define TPORT_TYPE TCP
-#define TPORT_PORT 17000
-#define SET_AFFINITY true
 
 #define MAX_TPORT_NAME 128
 #define MSG_SIZE 128 // in bytes
@@ -341,6 +338,10 @@ enum PPSTxnType {PPS_ALL = 0,
 #define IDX_VERB          false
 #define VERB_ALLOC          true
 
+#define DEBUG_MESSAGEQUEUE    false
+#define DEBUG_ABORTQUEUE      false
+#define DEBUG_TRANSACTION     false
+#define DEBUG_TIMER           false
 #define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false
@@ -430,7 +431,12 @@ enum PPSTxnType {PPS_ALL = 0,
 #define BATCH_TIMER 0
 #define SEQ_BATCH_TIMER 5 * 1 * MILLION // ~5ms -- same as CALVIN paper
 #define DONE_TIMER 1 * 60 * BILLION // ~1 minutes
+
+#if DEBUG_TIMER
+#define WARMUP_TIMER 0 // No Warm up in debug mode
+#else
 #define WARMUP_TIMER 1 * 60 * BILLION // ~1 minutes
+#endif
 
 #define SEED 0
 #define SHMEM_ENV false

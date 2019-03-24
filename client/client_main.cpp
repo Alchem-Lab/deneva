@@ -190,9 +190,14 @@ int main(int argc, char* argv[])
       threads.push_back(&output_thds[j]);
   }
 
+  uint64_t cpu_cnt = 0;
   for (vector<Thread *>::const_iterator it = threads.begin();
        it != threads.end(); ++it) {
       (*it)->start();
+      if (ClientThread* cthd = dynamic_cast<ClientThread*>(*it)) {
+        cthd->binding(cpu_cnt);
+        cpu_cnt = (cpu_cnt + 1) % g_servers_per_client;
+      }
   }
   sleep(1);
 

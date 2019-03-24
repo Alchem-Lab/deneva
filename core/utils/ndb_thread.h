@@ -77,7 +77,8 @@ public:
   void binding(int id) {
     cpu_set_t cpuset;
     CPU_ZERO(&cpuset);
-    CPU_SET(2 * id, &cpuset);
+    //CPU_SET(2 * id, &cpuset);
+    CPU_SET(id, &cpuset);
     int rc = pthread_setaffinity_np(p,
                                     sizeof(cpu_set_t), &cpuset);
     assert(rc == 0);

@@ -298,6 +298,7 @@ int main(int argc, char* argv[])
   simulation->run_starttime = starttime;
 #if USE_RDMA == 1
   vector<Thread*> threads;
+
   for (uint64_t i = 0; i < wthd_cnt; i++) {
       threads.push_back(&worker_thds[i]);
   }
@@ -318,9 +319,18 @@ int main(int argc, char* argv[])
   threads.push_back(&calvin_seq_thds[0]);
 #endif
 
+#if SET_AFFINITY
+  uint64_t cpu_cnt = 0;  
+#endif
   for (vector<Thread *>::const_iterator it = threads.begin();
        it != threads.end(); ++it) {
       (*it)->start();
+
+#if SET_AFFINITY
+      if (WorkerThread* wthd = dynamic_cast<WorkerThread*>(*it)) {
+        wthd->binding(cpu_cnt++);
+      }
+#endif
   }
   sleep(1);
 

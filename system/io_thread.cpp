@@ -55,6 +55,7 @@ void InputThread::setup() {
       continue;
     while(!msgs->empty()) {
       Message * msg = msgs->front();
+      
       if(msg->rtype == INIT_DONE) {
         printf("Received INIT_DONE from node %ld\n",msg->return_node_id);
         fflush(stdout);
@@ -86,7 +87,8 @@ void InputThread::setup() {
 void InputThread::run() {
   tsetup();
   printf("Running InputThread %ld\n",_thd_id);
-
+  fflush(stdout);
+  
   if(ISCLIENT) {
     client_recv_loop();
   } else {
@@ -136,7 +138,7 @@ RC InputThread::client_recv_loop() {
       }
       //INC_STATS_ARR(get_thd_id(),all_lat,timespan);
       inf = client_man.dec_inflight(return_node_offset);
-      DEBUG("Recv %ld from %ld, %ld -- %f\n",((ClientResponseMessage*)msg)->txn_id,msg->return_node_id,inf,float(timespan)/BILLION);
+      DEBUG_TXN("Recv %ld from %ld, %ld -- %f\n",((ClientResponseMessage*)msg)->txn_id,msg->return_node_id,inf,float(timespan)/BILLION);
       assert(inf >=0);
       // delete message here
       msgs->erase(msgs->begin());
@@ -215,7 +217,7 @@ void OutputThread::setup() {
   DEBUG_M("OutputThread::setup MessageThread alloc\n");
   messager = (MessageThread *) mem_allocator.alloc(sizeof(MessageThread));
   messager->init(_thd_id);
-	while (!simulation->is_setup_done()) {
+	while (!simulation->is_setup_done() || !msg_queue.allQEmpty()) {
     messager->run();
   }
 }
@@ -224,6 +226,7 @@ void OutputThread::run() {
 
   tsetup();
   printf("Running OutputThread %ld\n",_thd_id);
+  fflush(stdout);
 
   while (!simulation->is_done()) {
     heartbeat();
@@ -272,14 +275,17 @@ void InputThread::create_rdma_connections() {
 }
 
 bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  // DEBUG_COMM("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
-  // for (int i = 0; i < len; i++) {
-  //   DEBUG_COMM("0x%x ", (unsigned char)msg[i]);
-  // }
-  // DEBUG_COMM("\n");
-  tport_man.recv_buffers = (char*)mem_allocator.alloc(len+sizeof(uint32_t));
-  *((uint32_t *)tport_man.recv_buffers) = (uint32_t)len;
-  memcpy(tport_man.recv_buffers+sizeof(uint32_t), msg, len);
+  DEBUG_COMM("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
+  for (int i = 0; i < len; i++) {
+    DEBUG_COMM("0x%x ", (unsigned char)msg[i]);
+  }
+  DEBUG_COMM("\n");
+
+  char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
+  *((uint32_t *)buf) = (uint32_t)len;
+  memcpy(buf+sizeof(uint32_t), msg, len);
+  assert(Transport::recv_buffers != NULL);
+  tport_man.recv_buffers->push(buf);
   return true;
 }
 

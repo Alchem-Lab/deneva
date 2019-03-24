@@ -24,6 +24,7 @@
 
 #if USE_RDMA
 #include <sys/mman.h>
+#include <queue>
 #include "rdmaio.h"
 #include "msg_handler.h"
 #endif
@@ -79,7 +80,7 @@ class Transport {
     char* rdma_buffer = NULL;
     char* free_buffer = NULL;
     static __thread rdmaio::MsgHandler* msg_handler; // per thread msg_handler
-    static __thread char* recv_buffers;
+    static __thread std::queue<char*>* recv_buffers;
 
     /**
     * RDMA RC based message.
