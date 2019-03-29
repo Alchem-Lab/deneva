@@ -294,7 +294,7 @@ bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_t
 	  assert(false);
   }
   assert((uint64_t)(*((int32_t*)msg)) == g_node_id);
-  assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id && (uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) < 3);
+  assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id);
 
   char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
   *((uint32_t *)buf) = (uint32_t)len;
