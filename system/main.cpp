@@ -230,16 +230,18 @@ int main(int argc, char* argv[])
       output_thds[i].init(g_node_id,m_wl);      
     }
 
-    raw_memory = operator new[](sizeof(AbortThread));
-    abort_thds = static_cast<AbortThread*>(raw_memory);
-    new (&abort_thds[0])AbortThread(id++, tport_man.rdmaCtrl);
-    abort_thds[0].init(g_node_id,m_wl);      
-
+#if LOGGING
     raw_memory = operator new[](sizeof(LogThread));
     log_thds = static_cast<LogThread*>(raw_memory);
     new (&log_thds[0])LogThread(id++, tport_man.rdmaCtrl);
     log_thds[0].init(g_node_id,m_wl);
-
+#endif
+#if CC_ALG != CALVIN
+    raw_memory = operator new[](sizeof(AbortThread));
+    abort_thds = static_cast<AbortThread*>(raw_memory);
+    new (&abort_thds[0])AbortThread(id++, tport_man.rdmaCtrl);
+    abort_thds[0].init(g_node_id,m_wl);      
+#endif
 #if CC_ALG == CALVIN
     raw_memory = operator new[](sizeof(CalvinLockThread));
     calvin_lock_thds = static_cast<CalvinLockThread*>(raw_memory);
@@ -260,8 +262,12 @@ int main(int argc, char* argv[])
     worker_thds = new WorkerThread[wthd_cnt];
     input_thds = new InputThread[rthd_cnt];
     output_thds = new OutputThread[sthd_cnt];
-    abort_thds = new AbortThread[1];
+#if LOGGING
     log_thds = new LogThread[1];
+#endif
+#if CC_ALG != CALVIN
+    abort_thds = new AbortThread[1];
+#endif
 #if CC_ALG == CALVIN
     calvin_lock_thds = new CalvinLockThread[1];
     calvin_seq_thds = new CalvinSequencerThread[1];
