@@ -119,7 +119,7 @@
 // # of transactions to run for warmup
 #define WARMUP            0
 // YCSB or TPCC or PPS
-#define WORKLOAD YCSB
+#define WORKLOAD PPS
 // print the transaction latency distribution
 #define PRT_LAT_DISTR false
 #define STATS_ENABLE        true
@@ -177,7 +177,7 @@
 // Concurrency Control
 /***********************************************/
 // WAIT_DIE, NO_WAIT, TIMESTAMP, MVCC, CALVIN, MAAT
-#define CC_ALG NO_WAIT
+#define CC_ALG MAAT
 #define ISOLATION_LEVEL SERIALIZABLE
 #define YCSB_ABORT_MODE false
 
@@ -341,7 +341,7 @@ enum PPSTxnType {PPS_ALL = 0,
 #define DEBUG_MESSAGEQUEUE    false
 #define DEBUG_ABORTQUEUE      false
 #define DEBUG_TRANSACTION     false
-#define DEBUG_TIMER           true
+#define DEBUG_TIMER           false
 #define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false
