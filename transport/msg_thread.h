@@ -46,10 +46,11 @@ struct mbuf {
     starttime = 0;
     cnt = 0;
     wait = false;
-	  ((uint32_t*)buffer)[0] = dest_id;
-	  ((uint32_t*)buffer)[1] = g_node_id;
-    ((uint32_t*)buffer)[2] = cnt;    
-    ptr = sizeof(uint32_t) * 3;
+    ((uint32_t*)buffer)[0] = dest_id;
+    ((uint32_t*)buffer)[1] = g_node_id;
+    ((uint32_t*)buffer)[2] = cnt;
+    ((uint32_t*)buffer)[3] = 0; // the checksum of the following message
+    ptr = sizeof(uint32_t) * 4;
   }
   void copy(char * p, uint64_t s) {
     assert(ptr + s <= g_msg_size);

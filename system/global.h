@@ -115,6 +115,7 @@ extern TimeTable time_table;
 extern bool volatile warmup_done;
 extern bool volatile enable_thread_mem_pool;
 extern pthread_barrier_t warmup_bar;
+extern pthread_mutex_t g_lock;
 
 /******************************************/
 // Client Global Params 

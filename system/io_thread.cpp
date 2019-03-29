@@ -274,12 +274,27 @@ void InputThread::create_rdma_connections() {
 #endif
 }
 
+static uint32_t checksum(char* buf,unsigned len) {
+	uint32_t res = 0;
+	for (unsigned i = 0; i < len; i++)
+		res ^= (uint32_t)buf[i];
+	return res;
+}
+
 bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  DEBUG_COMM("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
-  for (int i = 0; i < len; i++) {
-    DEBUG_COMM("0x%x ", (unsigned char)msg[i]);
+  uint32_t check = checksum(msg + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
+  if (check != *((uint32_t*)(msg + 3*sizeof(int32_t)))) {
+	  pthread_mutex_lock(&g_lock);
+	  fprintf(stderr, "InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
+	  for (int i = 0; i < len; i++) {
+	    fprintf(stderr, "0x%x ", (unsigned char)msg[i]);
+	  }
+	  fprintf(stderr, "Checksum Failed.\n");
+	  pthread_mutex_unlock(&g_lock);
+	  assert(false);
   }
-  DEBUG_COMM("\n");
+  assert((uint64_t)(*((int32_t*)msg)) == g_node_id);
+  assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id && (uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) < 3);
 
   char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
   *((uint32_t *)buf) = (uint32_t)len;

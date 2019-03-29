@@ -52,11 +52,20 @@ void MessageThread::check_and_send_batches() {
   INC_STATS(_thd_id,mtx[11],get_sys_clock() - starttime);
 }
 
+static uint32_t checksum(char* buf,unsigned len) {
+	uint32_t res = 0;
+	for (unsigned i = 0; i < len; i++)
+		res ^= (uint32_t)buf[i];
+	return res;
+}
+
 void MessageThread::send_batch(uint64_t dest_node_id) {
   uint64_t starttime = get_sys_clock();
     mbuf * sbuf = buffer[dest_node_id];
     assert(sbuf->cnt > 0);
-	  ((uint32_t*)sbuf->buffer)[2] = sbuf->cnt;
+    ((uint32_t*)sbuf->buffer)[2] = sbuf->cnt;
+    ((uint32_t*)sbuf->buffer)[3] = checksum(sbuf->buffer + sizeof(uint32_t)*4, sbuf->ptr-sizeof(uint32_t)*4);
+
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
 #if USE_RDMA == 1
@@ -70,7 +79,7 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
     //     fprintf(stderr, "txn %lu of type %d going to sent.\n", msgs->front()->txn_id, msgs->front()->rtype);
     //   msgs->erase(msgs->begin());
     // }
-
+    
     DEBUG_COMM("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
     tport_man.send_msg_to_thread_rdma(_thd_id, dest_node_id, _recv_thd_id, sbuf->buffer,sbuf->ptr);
 #else

@@ -29,8 +29,8 @@ namespace rdmaio {
       struct {
           uint32_t nid  : 4;
           uint32_t tid  : 4;
-          uint32_t cid  : 6;
-          uint32_t size : 18;
+          uint32_t size : 10;
+          uint32_t seq  : 14;
       };
       uint32_t content;
     };
@@ -116,6 +116,12 @@ namespace rdmaio {
       /* Remote offsets used for sending messages */
       uint64_t headers_[MSG_MAX_DESTS_SUPPORTED];
 
+      /* the sequence number for sending messages */
+      uint64_t seq_[MSG_MAX_DESTS_SUPPORTED];
+
+      /* the expected sequence number when polling */
+      uint64_t exp_seq_[MSG_MAX_DESTS_SUPPORTED];
+
       /* The thread id */
       int thread_id_;
 
@@ -134,8 +140,8 @@ namespace rdmaio {
       // recv data structures
       struct ibv_recv_wr rrs_[MSG_MAX_DESTS_SUPPORTED][MAX_RECV_SIZE];
       struct ibv_sge sges_[MSG_MAX_DESTS_SUPPORTED][MAX_RECV_SIZE];
-      struct ibv_wc wc_[MAX_RECV_SIZE];
       struct ibv_recv_wr *bad_rr_;
+      std::unordered_map<uint32_t, struct ibv_wc> wc_maps[MSG_MAX_DESTS_SUPPORTED];
 
       // private helper functions
       void init(uint32_t nid);

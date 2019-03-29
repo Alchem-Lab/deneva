@@ -297,6 +297,8 @@ void Transport::initRDMA() {
   total_ring_sz = g_coroutine_cnt * (2 * MAX_MSG_SIZE + 2 * 4096)  + ring_padding + MSG_META_SZ; // used for applications
   assert(total_ring_sz < r_buffer_size);
 
+  fprintf(stderr, "[Mem] Ring size for each thread: %lu\n", total_ring_sz);
+
   // ringsz = total_ring_sz - ring_padding - MSG_META_SZ;
 
   ring_area_sz = total_ring_sz * net_def_.size() * (g_this_total_thread_cnt + 1);
@@ -358,14 +360,30 @@ void Transport::send_msg_rdma(uint64_t send_thread_id, uint64_t dest_node_id, vo
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
 
+static uint32_t checksum(char* buf,unsigned len) {
+	uint32_t res = 0;
+	for (unsigned i = 0; i < len; i++)
+		res ^= (uint32_t)buf[i];
+	return res;
+}
+
 // send msg through RDMA connection
 void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_node_id, uint64_t dest_thread_id, void * sbuf,int size) {
   uint64_t starttime = get_sys_clock();
   assert(msg_handler != NULL);
+  uint32_t check = checksum((char*)sbuf + sizeof(uint32_t)*4, (unsigned)size-sizeof(uint32_t)*4);
+  pthread_mutex_lock(&g_lock);
+  // fprintf(stderr, "%ld: Sending %d bytes to node %ld, thread %ld\n", send_thread_id,size,dest_node_id, dest_thread_id);
   // for (int i = 0; i < size; i++) {
-  //   DEBUG_COMM("0x%x ", ((unsigned char*)sbuf)[i]);
+  //  fprintf(stderr, "0x%x ", ((unsigned char*)sbuf)[i]);
   // }
-  // DEBUG_COMM("\n");
+  // fprintf(stderr, "checksum=%u\n", check);
+  pthread_mutex_unlock(&g_lock);
+
+  assert(check == (*((uint32_t*)((char*)sbuf + 3*sizeof(int32_t)))));
+  assert((uint64_t)(*((int32_t*)sbuf)) == dest_node_id);
+  assert((uint64_t)(*((int32_t*)((char*)sbuf + sizeof(int32_t)))) == g_node_id);
+  
   msg_handler->send_to(dest_node_id, dest_thread_id, (char*)sbuf, size);
   DEBUG_COMM("%ld Batch of %d bytes sent to node %ld, thread %ld\n",send_thread_id,size,dest_node_id, dest_thread_id);
   INC_STATS(send_thread_id,msg_send_time,get_sys_clock() - starttime);
@@ -457,6 +475,7 @@ std::vector<Message*> * Transport::recv_msg_rdma(uint64_t thd_id) {
   while (!recv_buffers->empty()) {
     char* buf = recv_buffers->front();
     assert(buf != NULL);
+
     std::vector<Message*> * msgs = Message::create_messages(buf+sizeof(uint32_t));
     DEBUG_COMM("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,
                                                                  simulation->seconds_from_start(get_sys_clock()));

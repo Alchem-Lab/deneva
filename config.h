@@ -14,7 +14,7 @@
 
 #define HUGE_PAGE  1
 #define RBUF_SIZE_M 10240 // default size: 10G
-#define MAX_MSG_SIZE 4096
+#define MAX_MSG_SIZE 4096*1024
 #define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
 #define SINGLE_MR  0
 #define BUF_SIZE   10480 // RDMA buffer size registered, in a small setting
@@ -177,7 +177,7 @@
 // Concurrency Control
 /***********************************************/
 // WAIT_DIE, NO_WAIT, TIMESTAMP, MVCC, CALVIN, MAAT
-#define CC_ALG WAIT_DIE
+#define CC_ALG NO_WAIT
 #define ISOLATION_LEVEL SERIALIZABLE
 #define YCSB_ABORT_MODE false
 
@@ -341,7 +341,7 @@ enum PPSTxnType {PPS_ALL = 0,
 #define DEBUG_MESSAGEQUEUE    false
 #define DEBUG_ABORTQUEUE      false
 #define DEBUG_TRANSACTION     false
-#define DEBUG_TIMER           false
+#define DEBUG_TIMER           true
 #define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false
@@ -427,7 +427,7 @@ enum PPSTxnType {PPS_ALL = 0,
 #define BILLION 1000000000UL // in ns => 1 second
 #define MILLION 1000000UL // in ns => 1 second
 #define STAT_ARR_SIZE 1024
-#define PROG_TIMER 10 * BILLION // in s
+#define PROG_TIMER 1 * BILLION // in s
 #define BATCH_TIMER 0
 #define SEQ_BATCH_TIMER 5 * 1 * MILLION // ~5ms -- same as CALVIN paper
 #define DONE_TIMER 1 * 60 * BILLION // ~1 minutes
