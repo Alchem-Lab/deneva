@@ -71,6 +71,7 @@ namespace rdmaio {
         headers_[i] = 0;
         seq_[i] = 0;
         exp_seq_[i] = 0;
+        wc_maps_[i] = new std::unordered_map<uint32_t, struct ibv_wc>();
       }
 
       /* do we really need to clean the buffer here ? */
@@ -202,7 +203,6 @@ namespace rdmaio {
 
     int RingMessage::poll_comps() {
       // assert(false);
-      struct ibv_wc wc_[MAX_RECV_SIZE];
       int poll_result = 0;
       assert(cm_->comm_graph.find(_COMPACT_ENCODE_ID(node_id_, thread_id_)) != cm_->comm_graph.end());
       auto nei = cm_->comm_graph[_COMPACT_ENCODE_ID(node_id_, thread_id_)];
@@ -234,8 +234,8 @@ namespace rdmaio {
         uint32_t tid = meta.tid;
         uint32_t ntid = _COMPACT_ENCODE_ID(nid, tid);
         assert(std::find(nei.begin(), nei.end(), (unsigned)ntid) != nei.end());
-        assert(wc_maps[ntid].find(meta.seq) == wc_maps[ntid].end());
-        wc_maps[ntid][meta.seq] = wc_[i];
+        assert(wc_maps_[ntid]->find(meta.seq) == wc_maps_[ntid]->end());
+        (*wc_maps_[ntid])[meta.seq] = wc_[i];
         // fprintf(stderr, "inserted wc of seq %u and size %u to the map of %u:%u\n", 
         //                                      meta.seq, meta.size, nid, tid);
       }
@@ -247,9 +247,9 @@ namespace rdmaio {
         // note that since recv_cqs are shared by all the qps created by the same thread,
         // qp_vec_[id]->recv_cq is basically equivalent to qp_vec_[0]->recv_cq
         uint64_t ntid = _COMPACT_ENCODE_ID(send_node_id, send_thread_id);
-        while (wc_maps[ntid].find(exp_seq_[ntid]) != wc_maps[ntid].end()) {
+        while (wc_maps_[ntid]->find(exp_seq_[ntid]) != wc_maps_[ntid]->end()) {
           ImmMeta meta;
-          meta.content = wc_maps[ntid][exp_seq_[ntid]].imm_data;
+          meta.content = (*wc_maps_[ntid])[exp_seq_[ntid]].imm_data;
           //process this wr
           // fprintf(stderr, "receiving msg of seq %d\n", exp_seq_[ntid]);
 
@@ -258,7 +258,7 @@ namespace rdmaio {
           uint32_t len = meta.size;
           char* msg;
 #if USE_SEND == 1
-          msg = (char*)wc_maps[ntid][exp_seq_[ntid]].wr_id;
+          msg = (char*)(*wc_maps_[ntid])[exp_seq_[ntid]].wr_id;
 #else
           msg = try_recv_from(nid, tid);
 #endif
@@ -278,7 +278,7 @@ namespace rdmaio {
             idle_recv_nums_[ntid] = 0;
           }
 
-          wc_maps[ntid].erase(exp_seq_[ntid]);
+          wc_maps_[ntid]->erase(exp_seq_[ntid]);
           exp_seq_[ntid] = (exp_seq_[ntid] + 1) % (1UL<<14);
           processed += 1;          
         }

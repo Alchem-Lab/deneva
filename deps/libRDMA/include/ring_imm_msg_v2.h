@@ -90,7 +90,6 @@ namespace rdmaio {
 
     private:
       std::unordered_map<int, Qp *> qp_vec_;
-      std::unordered_map<uint, std::vector<uint> >* comm_graph;
 
       // The ring buffer size
       const uint64_t ring_size_;
@@ -138,10 +137,11 @@ namespace rdmaio {
       msg_func_v2_t callback_;
 
       // recv data structures
+      struct ibv_wc wc_[MAX_RECV_SIZE];
       struct ibv_recv_wr rrs_[MSG_MAX_DESTS_SUPPORTED][MAX_RECV_SIZE];
       struct ibv_sge sges_[MSG_MAX_DESTS_SUPPORTED][MAX_RECV_SIZE];
       struct ibv_recv_wr *bad_rr_;
-      std::unordered_map<uint32_t, struct ibv_wc> wc_maps[MSG_MAX_DESTS_SUPPORTED];
+      std::unordered_map<uint32_t, struct ibv_wc>* wc_maps_[MSG_MAX_DESTS_SUPPORTED];
 
       // private helper functions
       void init(uint32_t nid);

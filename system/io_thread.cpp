@@ -297,6 +297,7 @@ bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_t
   assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id);
 
   char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
+  assert(buf != NULL);
   *((uint32_t *)buf) = (uint32_t)len;
   memcpy(buf+sizeof(uint32_t), msg, len);
   assert(Transport::recv_buffers != NULL);
