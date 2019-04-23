@@ -334,7 +334,16 @@ int main(int argc, char* argv[])
 
 #if SET_AFFINITY
       if (WorkerThread* wthd = dynamic_cast<WorkerThread*>(*it)) {
+        assert(cpu_cnt<8); // worker_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
         wthd->binding(cpu_cnt++);
+      }
+      if (InputThread* ithd = dynamic_cast<InputThread*>(*it)) {
+        assert(cpu_cnt<8); // input_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        ithd->binding(cpu_cnt++);
+      }
+      if (OutputThread* othd = dynamic_cast<OutputThread*>(*it)) {
+        assert(cpu_cnt<8); // output_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        othd->binding(cpu_cnt++);
       }
 #endif
   }
