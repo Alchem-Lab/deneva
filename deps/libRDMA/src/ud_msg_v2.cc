@@ -56,7 +56,7 @@ bool bootstrap_ud_qps(RdmaCtrl *cm,int tid,int total,int dev_id,int port_idx,int
 }
 
 UDMsg::UDMsg(RdmaCtrl *cm,int thread_id,int total_threads,
-             int max_recv_num,msg_func_v2_t fun,
+             int max_recv_num,msg_func_t fun,
              int dev_id,int port_idx,int send_qp_num)
     : cm_(cm),
       recv_qp_(cm->create_ud_qp(thread_id,dev_id,port_idx,RECV_QP_IDX)),
@@ -126,7 +126,6 @@ void UDMsg::init() {
     meta.nid = my_node_id_;
     meta.tid  = thread_id_;
     meta.cid  = 0;
-    meta.size = 0;
     sr_[i].imm_data = meta.content;
     sr_[i].next = &sr_[i+1];
 
@@ -191,7 +190,6 @@ Qp::IOStatus UDMsg::send_to(int node_id,int tid,char *msg,int len) {
   meta.nid = my_node_id_;
   meta.tid = thread_id_;
   meta.cid = 0;
-  meta.size = ssge_[0].length;
   sr_[0].imm_data = meta.content;
 
   if(send_qp->need_poll())
@@ -285,7 +283,6 @@ Qp::IOStatus UDMsg::post_pending_helper(int key,char *msg,int len) {
   meta.nid = my_node_id_;
   meta.tid = thread_id_;
   meta.cid = 0;
-  meta.size = ssge_[i].length;
   sr_[i].imm_data = meta.content;
 
   if(current_idx_ >= UD_MAX_DOORBELL_SIZE)
@@ -339,7 +336,7 @@ int UDMsg::poll_comps() {
     if(wc_[i].status != IBV_WC_SUCCESS) assert(false); // FIXME!
     ImmMeta meta;
     meta.content = wc_[i].imm_data;
-    callback_((char *)(wc_[i].wr_id + GRH_SIZE), meta.size, meta.nid, meta.tid);
+    callback_((char *)(wc_[i].wr_id + GRH_SIZE), meta.nid, meta.tid);
   }
   flush_pending(); // send replies
 

@@ -22,12 +22,16 @@
 
 #if USE_RDMA == 1
 #include "ralloc.h"
+#include "util/rmem_alloc.h"
 #else
 #include "nn.hpp"
 #endif
 
 struct mbuf {
   char * buffer;
+#if USE_RDMA == 1
+  nocc::oltp::RMemAllocator* alloc = NULL;
+#endif
   uint64_t starttime;
   uint64_t ptr;
   uint64_t cnt;
@@ -35,7 +39,7 @@ struct mbuf {
 
   void init(uint64_t dest_id) {
 #if USE_RDMA == 1
-    buffer = (char*)Rmalloc(sizeof(char)*g_msg_size);    
+    alloc = new nocc::oltp::RMemAllocator();
 #else
     buffer = (char*)nn::allocmsg(g_msg_size,0);
 #endif
@@ -46,11 +50,17 @@ struct mbuf {
     starttime = 0;
     cnt = 0;
     wait = false;
+
+#if USE_RDMA == 1
+    buffer = alloc->get_req_buf();
+#endif
+
     ((uint32_t*)buffer)[0] = dest_id;
     ((uint32_t*)buffer)[1] = g_node_id;
     ((uint32_t*)buffer)[2] = cnt;
     ((uint32_t*)buffer)[3] = 0; // the checksum of the following message
-    ptr = sizeof(uint32_t) * 4;
+    ptr = sizeof(uint32_t) * 5;
+    ((uint32_t*)buffer)[4] = ptr; // the size of the message in bytes
   }
   void copy(char * p, uint64_t s) {
     assert(ptr + s <= g_msg_size);
@@ -72,7 +82,7 @@ struct mbuf {
   }
   void fini() {
 #if USE_RDMA == 1
-    Rfree(buffer);    
+    delete alloc;  
 #else
     nn::freemsg(buffer);
 #endif    

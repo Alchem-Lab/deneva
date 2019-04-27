@@ -11,6 +11,8 @@ if os.path.isdir(out_path):
 	os.system('mv ' + out_path + ' ' + out_path + '_' + ''.join(d.split(':')))
 if os.path.isfile('rdma_scalability.pdf'):
 	os.system('mv rdma_scalability.pdf rdma_scalability' + '_' + ''.join(d.strip().split(':')) + '.pdf')
+if os.path.isfile('tcp_scalability.pdf'):
+	os.system('mv tcp_scalability.pdf tcp_scalability' + '_' + ''.join(d.strip().split(':')) + '.pdf')
 if os.path.isfile('tcp_cmp_rdma.pdf'):
 	os.system('mv tcp_cmp_rdma.pdf tcp_cmp_rdma' + '_' + ''.join(d.strip().split(':')) + '.pdf')
 os.system('mkdir -p ' + out_path)

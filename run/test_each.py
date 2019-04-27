@@ -3,9 +3,9 @@
 import os
 import subprocess
 
-use_rdma = 1
-node_cnt = 2
-workload = 'YCSB'
+use_rdma = 0
+node_cnt = 4
+workload = 'PPS'
 cc_alg = 'NO_WAIT'
 
 os.system('sed -i \'s/^#define USE_RDMA.*$/#define USE_RDMA ' + str(use_rdma) + '/\' ../config.h')

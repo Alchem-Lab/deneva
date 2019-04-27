@@ -39,7 +39,8 @@ std::vector<Message*> * Message::create_messages(char * buf) {
   assert(dest_id == g_node_id);
   assert(return_id != g_node_id);
   assert(ISCLIENTN(return_id) || ISSERVERN(return_id) || ISREPLICAN(return_id));
-  ptr += sizeof(uint32_t);
+  ptr += sizeof(uint32_t); //to bypass checksum
+  ptr += sizeof(uint32_t); //to bypass message size
   while(txn_cnt > 0) {
     Message * msg = create_message(&data[ptr]);
     msg->return_node_id = return_id;

@@ -6,8 +6,16 @@ import numpy as np
 import re
 import subprocess
 import os.path
+import sys
 
-out_path = 'out/'
+if len(sys.argv) < 2:
+	out_path = 'out/'
+else:
+	out_path = 'out_' + str(sys.argv[1]) + '/';
+
+if os.path.isdir(out_path) == False:
+	print("%s does not exist.\n" % (out_path))
+	exit()
 
 series = ['TCP','RDMA']
 workloads = ['PPS', 'TPCC', 'YCSB']
@@ -64,5 +72,8 @@ for wl in range(len(workloads)):
 		ax.yaxis.set_ticks_position('left')
 
 plt.legend((rects_list[0][0], rects_list[1][0]), series, fontsize=6, bbox_to_anchor=(-2.2, -0.2, 3, .06), loc=3, ncol=2, mode="expand", borderaxespad=0.)
-plt.savefig('tcp_cmp_rdma' + '.pdf', bbox_inches='tight')
+if len(sys.argv) < 2:
+	plt.savefig('tcp_cmp_rdma' + '.pdf', bbox_inches='tight')
+else:
+	plt.savefig('tcp_cmp_rdma_' + str(sys.argv[1]) + '.pdf', bbox_inches='tight')
 

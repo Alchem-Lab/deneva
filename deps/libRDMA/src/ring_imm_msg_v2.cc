@@ -15,14 +15,14 @@
 namespace rdmaio {
 
   namespace ring_imm_msg_v2 {
-
+ 
 #define SET_HEADER_TAILER(msgp,len) \
     *((uint64_t *)msgp) = len; \
     *((uint64_t *)(msgp + sizeof(uint64_t) + len)) = len;\
     len += sizeof(uint64_t) * 2;\
 
     RingMessage::RingMessage(uint64_t ring_size,uint64_t ring_padding,
-                             int thread_id,RdmaCtrl *cm,char *base_ptr, msg_func_v2_t func)
+                             int thread_id,RdmaCtrl *cm,char *base_ptr, msg_func_t func)
       :ring_size_(ring_size),
        ring_padding_(ring_padding),
        thread_id_(thread_id),
@@ -81,10 +81,11 @@ namespace rdmaio {
       // base_offset_ = base_ptr_ - start_ptr;
 
       // calculate the recv_buf_size
-      recv_buf_size_ = 0;
-      while(recv_buf_size_ < MAX_PACKET_SIZE){
-        recv_buf_size_ += MIN_STEP_SIZE;
-      }
+      // recv_buf_size_ = 0;
+      // while(recv_buf_size_ < MAX_PACKET_SIZE){
+      //   recv_buf_size_ += MIN_STEP_SIZE;
+      // }
+      recv_buf_size_ = MAX_PACKET_SIZE + MIN_STEP_SIZE;
 
       std::vector<uint> neighbors = (cm->comm_graph)[id];
       for (uint i = 0; i < neighbors_cnt; i++) {
@@ -99,7 +100,8 @@ namespace rdmaio {
 
     Qp::IOStatus
     RingMessage::send_to(int node, int remote_thread, char *msgp,int len) {
-
+      // the len must be encoded in the message.
+      assert(len == *(int*)(msgp+4*sizeof(int32_t)));
       //SET_HEADER_TAILER(msgp,len);
       int ret = (int) Qp::IO_SUCC;
 
@@ -154,10 +156,9 @@ namespace rdmaio {
       ImmMeta meta;
       meta.nid  = node_id_;
       meta.tid  = thread_id_;
-      assert(recv_buf_size_ < MAX_PACKET_SIZE + MIN_STEP_SIZE && len < recv_buf_size_);
-      meta.size = len;
+      assert(len <= recv_buf_size_);
       meta.seq = seq_[offset_idx];
-      seq_[offset_idx] = (seq_[offset_idx]+1) % (1UL<<14);
+      seq_[offset_idx] = (seq_[offset_idx]+1) % (1UL<<24);
 
       // fprintf(stderr, "sending txn id: %lu of type %d\n", *(uint64_t*)(msgp + 4*sizeof(int32_t)), *(int32_t*)(msgp + 3*sizeof(int32_t)));
       ret |= qp->rc_post_send(op,msgp,len, offset,send_flag,0,meta.content);
@@ -255,17 +256,20 @@ namespace rdmaio {
 
           uint32_t nid = meta.nid;
           uint32_t tid = meta.tid;
-          uint32_t len = meta.size;
           char* msg;
 #if USE_SEND == 1
           msg = (char*)(*wc_maps_[ntid])[exp_seq_[ntid]].wr_id;
 #else
           msg = try_recv_from(nid, tid);
 #endif
+          //retrieve the size of the message. 
+          //This is application-specific and must match with the application's way of
+          //storing the size of the message.
           // fprintf(stderr, "receving txn id: %lu of type %d\n", *(uint64_t*)(msg + 5*sizeof(int32_t)), *(int32_t*)(msg + 4*sizeof(int32_t)));        
-          callback_(msg, len, nid, tid);
+          callback_(msg, nid, tid);
 #if USE_SEND == 0
-          ack_msg(ntid, meta.size);
+          int size = *(int*)(msg + 4*sizeof(int32_t));
+          ack_msg(ntid, size);
 #endif
 
           idle_recv_nums_[ntid] += 1;
@@ -279,7 +283,7 @@ namespace rdmaio {
           }
 
           wc_maps_[ntid]->erase(exp_seq_[ntid]);
-          exp_seq_[ntid] = (exp_seq_[ntid] + 1) % (1UL<<14);
+          exp_seq_[ntid] = (exp_seq_[ntid] + 1) % (1UL<<24);
           processed += 1;          
         }
       }

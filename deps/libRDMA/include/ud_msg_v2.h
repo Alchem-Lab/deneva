@@ -22,7 +22,6 @@ namespace rdmaio {
           uint32_t nid  : 4;
           uint32_t tid  : 4;
           uint32_t cid  : 6;
-          uint32_t size : 18;
       };
       uint32_t content;
     };
@@ -32,7 +31,7 @@ namespace rdmaio {
 
     public:
 
-      UDMsg(RdmaCtrl *cm,int tid,int total,int max_recv_num,msg_func_v2_t func,int dev_id,int port_id,int send_num);
+      UDMsg(RdmaCtrl *cm,int tid,int total,int max_recv_num,msg_func_t func,int dev_id,int port_id,int send_num);
 
       Qp::IOStatus send_to(int key,char *msg,int len);
       Qp::IOStatus send_to(int node_id,int tid,char *msg,int len);
@@ -88,7 +87,7 @@ namespace rdmaio {
       struct ibv_recv_wr *bad_rr_;
       int recv_buf_size_; // calculated during init
 
-      msg_func_v2_t callback_;
+      msg_func_t callback_;
 
       //-------------------------------------
 

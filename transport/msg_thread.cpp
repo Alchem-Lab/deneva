@@ -63,9 +63,11 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
   uint64_t starttime = get_sys_clock();
     mbuf * sbuf = buffer[dest_node_id];
     assert(sbuf->cnt > 0);
+    ((uint32_t*)sbuf->buffer)[0] = dest_node_id;
+    ((uint32_t*)sbuf->buffer)[1] = g_node_id;
     ((uint32_t*)sbuf->buffer)[2] = sbuf->cnt;
+    ((uint32_t*)sbuf->buffer)[4] = sbuf->ptr;
     ((uint32_t*)sbuf->buffer)[3] = checksum(sbuf->buffer + sizeof(uint32_t)*4, sbuf->ptr-sizeof(uint32_t)*4);
-
     INC_STATS(_thd_id,mbuf_send_intv_time,get_sys_clock() - sbuf->starttime);
 
 #if USE_RDMA == 1

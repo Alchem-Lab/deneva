@@ -29,8 +29,7 @@ namespace rdmaio {
       struct {
           uint32_t nid  : 4;
           uint32_t tid  : 4;
-          uint32_t size : 10;
-          uint32_t seq  : 14;
+          uint32_t seq  : 24;
       };
       uint32_t content;
     };
@@ -45,7 +44,7 @@ namespace rdmaio {
        * basePtr:     The start pointer of the total message buffer used at one server
        * callback:    The callback function after receive a message
        */
-      RingMessage(uint64_t ring_size,uint64_t ring_padding,int thread_id,RdmaCtrl *cm,char *base_ptr, msg_func_v2_t callback);
+      RingMessage(uint64_t ring_size,uint64_t ring_padding,int thread_id,RdmaCtrl *cm,char *base_ptr, msg_func_t callback);
 
       Qp::IOStatus send_to(int node_id,char *msg,int len) {
         return send_to(node_id, thread_id_, msg, len);
@@ -134,7 +133,7 @@ namespace rdmaio {
       int max_recv_num_ = 0;
       int recv_buf_size_; // calculated during init
 
-      msg_func_v2_t callback_;
+      msg_func_t callback_;
 
       // recv data structures
       struct ibv_wc wc_[MAX_RECV_SIZE];

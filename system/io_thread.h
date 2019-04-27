@@ -48,7 +48,7 @@ public:
   void create_rdma_connections();
   void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
   void create_rdma_ud_raw_connections(int total_connections);
-  bool poll_comp_callback(char *msg, int size, int from_nid,int from_tid);
+  bool poll_comp_callback(char *msg, int from_nid,int from_tid);
 #endif
 };
 
@@ -70,7 +70,7 @@ public:
   void create_rdma_connections();
   void create_rdma_rc_raw_connections(char *start_buffer, uint64_t total_ring_sz,uint64_t total_ring_padding);
   void create_rdma_ud_raw_connections(int total_connections);
-  bool poll_comp_callback(char *msg, int size, int from_nid,int from_tid);
+  bool poll_comp_callback(char *msg, int from_nid,int from_tid);
 #endif
 };
 

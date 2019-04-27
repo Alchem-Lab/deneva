@@ -281,11 +281,12 @@ static uint32_t checksum(char* buf,unsigned len) {
 	return res;
 }
 
-bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
+bool InputThread::poll_comp_callback(char *msg, int from_nid,int from_tid) {
+  int32_t len = *((int32_t*)(msg + 4*sizeof(int32_t)));
   uint32_t check = checksum(msg + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
   if (check != *((uint32_t*)(msg + 3*sizeof(int32_t)))) {
 	  pthread_mutex_lock(&g_lock);
-	  fprintf(stderr, "InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
+	  fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
 	  for (int i = 0; i < len; i++) {
 	    fprintf(stderr, "0x%x ", (unsigned char)msg[i]);
 	  }
@@ -310,7 +311,7 @@ void InputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t to
   using namespace rdmaio::ring_imm_msg_v2;
   msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
                                  std::bind(&InputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 }
 
 void InputThread::create_rdma_ud_raw_connections(int total_connections) {
@@ -322,7 +323,7 @@ void InputThread::create_rdma_ud_raw_connections(int total_connections) {
   msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
                            2048, // max concurrent msg received
                            std::bind(&InputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
                            dev_id,port_idx,1);
 }
 
@@ -358,8 +359,8 @@ void OutputThread::create_rdma_connections() {
 }
 
 // OutputThread will never receive messages.
-bool OutputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  DEBUG_COMM("OutputThread: msg = %s of length %d from %d:%d", msg, len, from_nid, from_tid);
+bool OutputThread::poll_comp_callback(char *msg, int from_nid,int from_tid) {
+  DEBUG_COMM("OutputThread: msg = %s from %d:%d", msg, from_nid, from_tid);
   assert(false);
   return true;
 }
@@ -369,7 +370,7 @@ void OutputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t t
   using namespace rdmaio::ring_imm_msg_v2;
   msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
                                  std::bind(&OutputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 }
 
 void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
@@ -381,7 +382,7 @@ void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
   msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
                            2048, // max concurrent msg received
                            std::bind(&OutputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
                            dev_id,port_idx,1);
 }
 
