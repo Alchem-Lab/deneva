@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
   starttime = get_server_clock();
   printf("Initializing stats... ");
   fflush(stdout);
-	stats.init(g_total_thread_cnt);
+	stats.init(g_this_total_thread_cnt);
   printf("Done\n");
   printf("Initializing global manager... ");
   fflush(stdout);
@@ -230,16 +230,18 @@ int main(int argc, char* argv[])
       output_thds[i].init(g_node_id,m_wl);      
     }
 
-    raw_memory = operator new[](sizeof(AbortThread));
-    abort_thds = static_cast<AbortThread*>(raw_memory);
-    new (&abort_thds[0])AbortThread(id++, tport_man.rdmaCtrl);
-    abort_thds[0].init(g_node_id,m_wl);      
-
+#if LOGGING
     raw_memory = operator new[](sizeof(LogThread));
     log_thds = static_cast<LogThread*>(raw_memory);
     new (&log_thds[0])LogThread(id++, tport_man.rdmaCtrl);
     log_thds[0].init(g_node_id,m_wl);
-
+#endif
+#if CC_ALG != CALVIN
+    raw_memory = operator new[](sizeof(AbortThread));
+    abort_thds = static_cast<AbortThread*>(raw_memory);
+    new (&abort_thds[0])AbortThread(id++, tport_man.rdmaCtrl);
+    abort_thds[0].init(g_node_id,m_wl);      
+#endif
 #if CC_ALG == CALVIN
     raw_memory = operator new[](sizeof(CalvinLockThread));
     calvin_lock_thds = static_cast<CalvinLockThread*>(raw_memory);
@@ -260,8 +262,12 @@ int main(int argc, char* argv[])
     worker_thds = new WorkerThread[wthd_cnt];
     input_thds = new InputThread[rthd_cnt];
     output_thds = new OutputThread[sthd_cnt];
-    abort_thds = new AbortThread[1];
+#if LOGGING
     log_thds = new LogThread[1];
+#endif
+#if CC_ALG != CALVIN
+    abort_thds = new AbortThread[1];
+#endif
 #if CC_ALG == CALVIN
     calvin_lock_thds = new CalvinLockThread[1];
     calvin_seq_thds = new CalvinSequencerThread[1];
@@ -298,6 +304,7 @@ int main(int argc, char* argv[])
   simulation->run_starttime = starttime;
 #if USE_RDMA == 1
   vector<Thread*> threads;
+
   for (uint64_t i = 0; i < wthd_cnt; i++) {
       threads.push_back(&worker_thds[i]);
   }
@@ -318,9 +325,27 @@ int main(int argc, char* argv[])
   threads.push_back(&calvin_seq_thds[0]);
 #endif
 
+#if SET_AFFINITY
+  uint64_t cpu_cnt = 0;  
+#endif
   for (vector<Thread *>::const_iterator it = threads.begin();
        it != threads.end(); ++it) {
       (*it)->start();
+
+#if SET_AFFINITY
+      if (WorkerThread* wthd = dynamic_cast<WorkerThread*>(*it)) {
+        assert(cpu_cnt<8); // worker_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        wthd->binding(cpu_cnt++);
+      }
+      if (InputThread* ithd = dynamic_cast<InputThread*>(*it)) {
+        assert(cpu_cnt<8); // input_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        ithd->binding(cpu_cnt++);
+      }
+      if (OutputThread* othd = dynamic_cast<OutputThread*>(*it)) {
+        assert(cpu_cnt<8); // output_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        othd->binding(cpu_cnt++);
+      }
+#endif
   }
   sleep(1);
 

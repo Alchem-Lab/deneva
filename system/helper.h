@@ -34,6 +34,25 @@
   if(DEBUG_DISTR) { \
     fflush(stdout); \
   }
+
+#define DEBUG_MSGQ(...) \
+  if(DEBUG_MESSAGEQUEUE) { \
+    fprintf(stdout,__VA_ARGS__); \
+    fflush(stdout); \
+  }
+
+#define DEBUG_AQ(...) \
+  if(DEBUG_ABORTQUEUE) { \
+    fprintf(stdout,__VA_ARGS__); \
+    fflush(stdout); \
+  }
+
+#define DEBUG_TXN(...) \
+  if(DEBUG_TRANSACTION) { \
+    fprintf(stdout,__VA_ARGS__); \
+    fflush(stdout); \
+  }
+  	
 #define DEBUG_COMM(...) \
   if(DEBUG_COMMUNICATION) { \
     fprintf(stdout,__VA_ARGS__); \

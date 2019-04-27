@@ -14,7 +14,7 @@
 
 #define HUGE_PAGE  1
 #define RBUF_SIZE_M 10240 // default size: 10G
-#define MAX_MSG_SIZE 4096
+#define MAX_MSG_SIZE 4096*1024
 #define HUGE_PAGE_SZ (2 * 1024 * 1024)  // huge page size supported
 #define SINGLE_MR  0
 #define BUF_SIZE   10480 // RDMA buffer size registered, in a small setting
@@ -82,7 +82,7 @@
 /***********************************************/
 // Simulation + Hardware
 /***********************************************/
-#define NODE_CNT 2
+#define NODE_CNT 3
 #define THREAD_CNT 1
 #define REM_THREAD_CNT THREAD_CNT
 #define SEND_THREAD_CNT THREAD_CNT
@@ -119,10 +119,10 @@
 // # of transactions to run for warmup
 #define WARMUP            0
 // YCSB or TPCC or PPS
-#define WORKLOAD YCSB
+#define WORKLOAD PPS
 // print the transaction latency distribution
 #define PRT_LAT_DISTR false
-#define STATS_ENABLE        false
+#define STATS_ENABLE        true
 #define TIME_ENABLE         true //STATS_ENABLE
 
 #define FIN_BY_TIME true
@@ -157,9 +157,6 @@
 #define TPORT_TYPE TCP
 #define TPORT_PORT 17000
 #define SET_AFFINITY true
-#define TPORT_TYPE TCP
-#define TPORT_PORT 17000
-#define SET_AFFINITY true
 
 #define MAX_TPORT_NAME 128
 #define MSG_SIZE 128 // in bytes
@@ -180,7 +177,7 @@
 // Concurrency Control
 /***********************************************/
 // WAIT_DIE, NO_WAIT, TIMESTAMP, MVCC, CALVIN, MAAT
-#define CC_ALG WAIT_DIE
+#define CC_ALG CALVIN
 #define ISOLATION_LEVEL SERIALIZABLE
 #define YCSB_ABORT_MODE false
 
@@ -341,11 +338,15 @@ enum PPSTxnType {PPS_ALL = 0,
 #define IDX_VERB          false
 #define VERB_ALLOC          true
 
-#define DEBUG_LOCK            true
+#define DEBUG_MESSAGEQUEUE    false
+#define DEBUG_ABORTQUEUE      false
+#define DEBUG_TRANSACTION     false
+#define DEBUG_TIMER           false
+#define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false
 #define DEBUG_ASSERT          false
-#define DEBUG_DISTR           true
+#define DEBUG_DISTR           false
 #define DEBUG_COMMUNICATION   false
 #define DEBUG_ALLOC           false
 #define DEBUG_RACE            false
@@ -426,11 +427,16 @@ enum PPSTxnType {PPS_ALL = 0,
 #define BILLION 1000000000UL // in ns => 1 second
 #define MILLION 1000000UL // in ns => 1 second
 #define STAT_ARR_SIZE 1024
-#define PROG_TIMER 10 * BILLION // in s
+#define PROG_TIMER 1 * BILLION // in s
 #define BATCH_TIMER 0
 #define SEQ_BATCH_TIMER 5 * 1 * MILLION // ~5ms -- same as CALVIN paper
 #define DONE_TIMER 1 * 60 * BILLION // ~1 minutes
+
+#if DEBUG_TIMER
+#define WARMUP_TIMER 0 // No Warm up in debug mode
+#else
 #define WARMUP_TIMER 1 * 60 * BILLION // ~1 minutes
+#endif
 
 #define SEED 0
 #define SHMEM_ENV false

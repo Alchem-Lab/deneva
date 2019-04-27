@@ -60,6 +60,7 @@ public:
     virtual void exit_handler() {}
     virtual void change_ctx(int cor_id) {}
     virtual void thread_local_init() {};
+
     virtual int choose_rnic_port() {
         int total_devices = cm_->query_devinfo();
         assert(total_devices > 0);

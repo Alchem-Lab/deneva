@@ -32,7 +32,7 @@
 // XD: can we clean these flags?
 #define GRH_SIZE 40
 #define MIN_STEP_SIZE 64
-#define MAX_PACKET_SIZE 4032 //4096 - 64
+#define MAX_PACKET_SIZE (4096-64) //4096 - 64
 // #define MAX_PACKET_SIZE 64
 
 #define MAX_QP_NUM 128 //todo

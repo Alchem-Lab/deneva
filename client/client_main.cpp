@@ -124,19 +124,21 @@ int main(int argc, char* argv[])
 
 #if USE_RDMA == 1
     uint64_t id = 0;
-    
+
     void* raw_memory = operator new[](cthd_cnt * sizeof(ClientThread));
     client_thds = static_cast<ClientThread*>(raw_memory);
     for (uint64_t i = 0; i < cthd_cnt; i++) {
       new (&client_thds[i])ClientThread(id++, tport_man.rdmaCtrl);
       client_thds[i].init(g_node_id, m_wl);
     }
+
     raw_memory = operator new[](rthd_cnt * sizeof(InputThread));
     input_thds = static_cast<InputThread*>(raw_memory);
     for (uint64_t i = 0; i < rthd_cnt; i++) {
       new (&input_thds[i])InputThread(id++, tport_man.rdmaCtrl);
       input_thds[i].init(g_node_id, m_wl);
     }
+
     raw_memory = operator new[](sthd_cnt * sizeof(OutputThread));
     output_thds = static_cast<OutputThread*>(raw_memory);
     for (uint64_t i = 0; i < sthd_cnt; i++) {
@@ -190,9 +192,24 @@ int main(int argc, char* argv[])
       threads.push_back(&output_thds[j]);
   }
 
+  uint64_t cpu_cnt = 0;
   for (vector<Thread *>::const_iterator it = threads.begin();
        it != threads.end(); ++it) {
       (*it)->start();
+      if (ClientThread* cthd = dynamic_cast<ClientThread*>(*it)) {
+        assert(cpu_cnt<8); // client_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        cthd->binding(cpu_cnt++);
+        // assert(g_servers_per_client <= 16);
+        // cpu_cnt = (cpu_cnt + 1) % g_servers_per_client;
+      }
+      if (InputThread* ithd = dynamic_cast<InputThread*>(*it)) {
+        assert(cpu_cnt<8); // input_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        ithd->binding(cpu_cnt++);
+      }
+      if (OutputThread* othd = dynamic_cast<OutputThread*>(*it)) {
+        assert(cpu_cnt<8); // output_thread must be on numa_node 0 since rdma device port 0 is mapped to numa node 0
+        othd->binding(cpu_cnt++);
+      }
   }
   sleep(1);
 

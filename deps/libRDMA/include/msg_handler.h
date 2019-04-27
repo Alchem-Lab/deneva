@@ -8,7 +8,6 @@
 namespace rdmaio {
 
   typedef std::function<void(char *,int,int)> msg_func_t;
-  typedef std::function<void(char *,int,int,int)> msg_func_v2_t;
 
   class MsgHandler {
   public:

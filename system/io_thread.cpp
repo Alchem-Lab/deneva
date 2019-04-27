@@ -55,6 +55,7 @@ void InputThread::setup() {
       continue;
     while(!msgs->empty()) {
       Message * msg = msgs->front();
+      
       if(msg->rtype == INIT_DONE) {
         printf("Received INIT_DONE from node %ld\n",msg->return_node_id);
         fflush(stdout);
@@ -86,7 +87,8 @@ void InputThread::setup() {
 void InputThread::run() {
   tsetup();
   printf("Running InputThread %ld\n",_thd_id);
-
+  fflush(stdout);
+  
   if(ISCLIENT) {
     client_recv_loop();
   } else {
@@ -136,7 +138,7 @@ RC InputThread::client_recv_loop() {
       }
       //INC_STATS_ARR(get_thd_id(),all_lat,timespan);
       inf = client_man.dec_inflight(return_node_offset);
-      DEBUG("Recv %ld from %ld, %ld -- %f\n",((ClientResponseMessage*)msg)->txn_id,msg->return_node_id,inf,float(timespan)/BILLION);
+      DEBUG_TXN("Recv %ld from %ld, %ld -- %f\n",((ClientResponseMessage*)msg)->txn_id,msg->return_node_id,inf,float(timespan)/BILLION);
       assert(inf >=0);
       // delete message here
       msgs->erase(msgs->begin());
@@ -215,7 +217,7 @@ void OutputThread::setup() {
   DEBUG_M("OutputThread::setup MessageThread alloc\n");
   messager = (MessageThread *) mem_allocator.alloc(sizeof(MessageThread));
   messager->init(_thd_id);
-	while (!simulation->is_setup_done()) {
+	while (!simulation->is_setup_done() || !msg_queue.allQEmpty()) {
     messager->run();
   }
 }
@@ -224,6 +226,7 @@ void OutputThread::run() {
 
   tsetup();
   printf("Running OutputThread %ld\n",_thd_id);
+  fflush(stdout);
 
   while (!simulation->is_done()) {
     heartbeat();
@@ -271,15 +274,35 @@ void InputThread::create_rdma_connections() {
 #endif
 }
 
-bool InputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  // DEBUG_COMM("InputThread: received msg of length %d from %d:%d\n", len, from_nid, from_tid);
-  // for (int i = 0; i < len; i++) {
-  //   DEBUG_COMM("0x%x ", (unsigned char)msg[i]);
-  // }
-  // DEBUG_COMM("\n");
-  tport_man.recv_buffers = (char*)mem_allocator.alloc(len+sizeof(uint32_t));
-  *((uint32_t *)tport_man.recv_buffers) = (uint32_t)len;
-  memcpy(tport_man.recv_buffers+sizeof(uint32_t), msg, len);
+static uint32_t checksum(char* buf,unsigned len) {
+	uint32_t res = 0;
+	for (unsigned i = 0; i < len; i++)
+		res ^= (uint32_t)buf[i];
+	return res;
+}
+
+bool InputThread::poll_comp_callback(char *msg, int from_nid,int from_tid) {
+  int32_t len = *((int32_t*)(msg + 4*sizeof(int32_t)));
+  uint32_t check = checksum(msg + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
+  if (check != *((uint32_t*)(msg + 3*sizeof(int32_t)))) {
+	  pthread_mutex_lock(&g_lock);
+	  fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
+	  for (int i = 0; i < len; i++) {
+	    fprintf(stderr, "0x%x ", (unsigned char)msg[i]);
+	  }
+	  fprintf(stderr, "Checksum Failed.\n");
+	  pthread_mutex_unlock(&g_lock);
+	  assert(false);
+  }
+  assert((uint64_t)(*((int32_t*)msg)) == g_node_id);
+  assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id);
+
+  char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
+  assert(buf != NULL);
+  *((uint32_t *)buf) = (uint32_t)len;
+  memcpy(buf+sizeof(uint32_t), msg, len);
+  assert(Transport::recv_buffers != NULL);
+  tport_man.recv_buffers->push(buf);
   return true;
 }
 
@@ -288,7 +311,7 @@ void InputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t to
   using namespace rdmaio::ring_imm_msg_v2;
   msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
                                  std::bind(&InputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 }
 
 void InputThread::create_rdma_ud_raw_connections(int total_connections) {
@@ -300,7 +323,7 @@ void InputThread::create_rdma_ud_raw_connections(int total_connections) {
   msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
                            2048, // max concurrent msg received
                            std::bind(&InputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
                            dev_id,port_idx,1);
 }
 
@@ -336,8 +359,8 @@ void OutputThread::create_rdma_connections() {
 }
 
 // OutputThread will never receive messages.
-bool OutputThread::poll_comp_callback(char *msg, int len, int from_nid,int from_tid) {
-  DEBUG_COMM("OutputThread: msg = %s of length %d from %d:%d", msg, len, from_nid, from_tid);
+bool OutputThread::poll_comp_callback(char *msg, int from_nid,int from_tid) {
+  DEBUG_COMM("OutputThread: msg = %s from %d:%d", msg, from_nid, from_tid);
   assert(false);
   return true;
 }
@@ -347,7 +370,7 @@ void OutputThread::create_rdma_rc_raw_connections(char *start_buffer, uint64_t t
   using namespace rdmaio::ring_imm_msg_v2;
   msg_handler_ = new RingMessage(total_ring_sz,total_ring_padding,_thd_id,cm_,start_buffer, \
                                  std::bind(&OutputThread::poll_comp_callback, this,       \
-                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4));
+                                           std::placeholders::_1,std::placeholders::_2,std::placeholders::_3));
 }
 
 void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
@@ -359,7 +382,7 @@ void OutputThread::create_rdma_ud_raw_connections(int total_connections) {
   msg_handler_ = new UDMsg(cm_, _thd_id, total_connections,
                            2048, // max concurrent msg received
                            std::bind(&OutputThread::poll_comp_callback,this,
-                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4),
+                                     std::placeholders::_1,std::placeholders::_2,std::placeholders::_3),
                            dev_id,port_idx,1);
 }
 

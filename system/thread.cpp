@@ -95,7 +95,7 @@ void Thread::communication_graph_global_sync() {
 }
 
 void Thread::tRDMAsetup() {
-  BindToCore(worker_id_); // really specified to platforms
+  // BindToCore(worker_id_); // really specified to platforms
 
   init_routines(server_routine);
   DEBUG("%ld:%ld init_routines done.\n", _node_id, _thd_id);

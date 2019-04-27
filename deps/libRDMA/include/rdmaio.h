@@ -12,6 +12,8 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <queue>
+#include <algorithm>
 #include <assert.h>
 
 #include "rdma_header.h"
