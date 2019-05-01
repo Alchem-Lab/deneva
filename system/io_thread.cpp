@@ -138,7 +138,14 @@ RC InputThread::client_recv_loop() {
       }
       //INC_STATS_ARR(get_thd_id(),all_lat,timespan);
       inf = client_man.dec_inflight(return_node_offset);
-      DEBUG_TXN("Recv %ld from %ld, %ld -- %f\n",((ClientResponseMessage*)msg)->txn_id,msg->return_node_id,inf,float(timespan)/BILLION);
+      DEBUG_TXN("Txn %ld Recv CL_RSP from %ld, %ld @ %f -- %f txn lasts: %f\n",((ClientResponseMessage*)msg)->txn_id,
+                                                      msg->return_node_id,inf, 
+                                                      simulation->seconds_from_start(get_sys_clock()), 
+                                                      (double)(get_sys_clock() - ((ClientResponseMessage*)msg)->server_response_ts) / BILLION,
+                                                      float(timespan)/BILLION);
+      if (STATS_TXN_TIMING && ((ClientResponseMessage*)msg)->txn_id < MAX_TXN_CNT)
+        txn_timing[((ClientResponseMessage*)msg)->txn_id][TXN_TOTAL_ELPASE] = float(timespan)/BILLION;
+
       assert(inf >=0);
       // delete message here
       msgs->erase(msgs->begin());
@@ -274,35 +281,37 @@ void InputThread::create_rdma_connections() {
 #endif
 }
 
+#if DEBUG_CHECKSUM
 static uint32_t checksum(char* buf,unsigned len) {
 	uint32_t res = 0;
 	for (unsigned i = 0; i < len; i++)
 		res ^= (uint32_t)buf[i];
 	return res;
 }
+#endif
 
-bool InputThread::poll_comp_callback(char *msg, int from_nid,int from_tid) {
-  int32_t len = *((int32_t*)(msg + 4*sizeof(int32_t)));
-  uint32_t check = checksum(msg + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
-  if (check != *((uint32_t*)(msg + 3*sizeof(int32_t)))) {
-	  pthread_mutex_lock(&g_lock);
-	  fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
-	  for (int i = 0; i < len; i++) {
-	    fprintf(stderr, "0x%x ", (unsigned char)msg[i]);
-	  }
-	  fprintf(stderr, "Checksum Failed.\n");
-	  pthread_mutex_unlock(&g_lock);
-	  assert(false);
-  }
-  assert((uint64_t)(*((int32_t*)msg)) == g_node_id);
-  assert((uint64_t)(*((int32_t*)(msg + sizeof(int32_t)))) != g_node_id);
-
-  char* buf = ((char*)mem_allocator.alloc(len+sizeof(uint32_t)));
-  assert(buf != NULL);
-  *((uint32_t *)buf) = (uint32_t)len;
-  memcpy(buf+sizeof(uint32_t), msg, len);
-  assert(Transport::recv_buffers != NULL);
-  tport_man.recv_buffers->push(buf);
+bool InputThread::poll_comp_callback(char *buf, int from_nid,int from_tid) {
+  uint64_t starttime = get_sys_clock();
+#if DEBUG_CHECKSUM
+      int32_t len = *((int32_t*)(buf + 4*sizeof(int32_t)));
+      fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
+      uint32_t check = checksum(buf + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
+      if (check != *((uint32_t*)(buf + 3*sizeof(int32_t)))) {
+    	  pthread_mutex_lock(&g_lock);
+    	  for (int i = 0; i < len; i++) {
+    	    fprintf(stderr, "0x%x ", (unsigned char)buf[i]);
+    	  }
+    	  fprintf(stderr, "Checksum Failed.\n");
+    	  pthread_mutex_unlock(&g_lock);
+    	  assert(false);
+      }
+#endif
+  assert((uint64_t)(*((int32_t*)buf)) == g_node_id);
+  assert((uint64_t)(*((int32_t*)(buf + sizeof(int32_t)))) != g_node_id);
+  std::vector<Message*> * msgs = Message::create_messages(buf);
+  Transport::all_msgs->insert(Transport::all_msgs->end(), msgs->begin(), msgs->end());
+  delete msgs;
+  INC_STATS(_thd_id,msg_unpack_time,get_sys_clock()-starttime);
   return true;
 }
 

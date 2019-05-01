@@ -296,4 +296,15 @@ private:
 	uint64_t seed;
 };
 
+// the following is ued to debug transaction timing issues.
+#define MAX_TXN_CNT 1000*1000*40UL
+#define TXN_RECV_CL_QRY 0
+#define TXN_START 1
+#define TXN_START_COMMIT 2
+#define TXN_VALIDATE 3
+#define TXN_COMMIT 4
+#define TXN_SEND_CL_RSP 5
+#define TXN_TOTAL_ELPASE 6
+extern double txn_timing[MAX_TXN_CNT][7];
+
 #endif

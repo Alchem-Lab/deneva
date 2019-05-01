@@ -424,10 +424,26 @@ int main(int argc, char* argv[])
 	
   fflush(stdout);
   printf("PASS! SimTime = %f\n", (float)(endtime - starttime) / BILLION);
+  if (STATS_TXN_TIMING) {
+    printf("\n");
+    printf("---TXN TIMING STARTS---\n");
+    for (unsigned long i = 0; i < MAX_TXN_CNT; i++) {
+      if (txn_timing[i][TXN_RECV_CL_QRY] != 0)
+        printf("%lu\t%f\t%f\t%f\t%f\t%f\t%f\n",
+                    i,
+                    0.0, 
+                    txn_timing[i][TXN_START] - txn_timing[i][TXN_RECV_CL_QRY], 
+                    txn_timing[i][TXN_START_COMMIT] - txn_timing[i][TXN_RECV_CL_QRY],
+                    txn_timing[i][TXN_VALIDATE] - txn_timing[i][TXN_RECV_CL_QRY],
+                    txn_timing[i][TXN_COMMIT] - txn_timing[i][TXN_RECV_CL_QRY],
+                    txn_timing[i][TXN_SEND_CL_RSP] - txn_timing[i][TXN_RECV_CL_QRY]
+                    );
+    }
+    printf("---TXN TIMING ENDS---\n");
+  }
   if (STATS_ENABLE)
     stats.print(false);
   //malloc_stats_print(NULL, NULL, NULL);
-  printf("\n");
   fflush(stdout);
   // Free things
 	tport_man.shutdown();

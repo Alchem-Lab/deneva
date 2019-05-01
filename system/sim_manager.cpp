@@ -86,8 +86,9 @@ void SimManager::set_setup_done() {
 
 void SimManager::set_done() {
     if(ATOM_CAS(sim_done, false, true)) {
-      if(warmup_end_time == 0)
+      if(warmup_end_time < run_starttime)
         warmup_end_time = run_starttime;
+      fprintf(stderr, "warmup end time: %lu\n", warmup_end_time);
       SET_STATS(0, total_runtime, get_sys_clock() - warmup_end_time); 
     }
 }

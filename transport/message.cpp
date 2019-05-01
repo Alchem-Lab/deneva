@@ -27,7 +27,7 @@
 #include "maat.h"
 
 std::vector<Message*> * Message::create_messages(char * buf) {
-  std::vector<Message*> * all_msgs = new std::vector<Message*>;
+  std::vector<Message*> * msgs = new std::vector<Message*>;
   char * data = buf;
 	uint64_t ptr = 0;
   uint32_t dest_id;
@@ -45,10 +45,10 @@ std::vector<Message*> * Message::create_messages(char * buf) {
     Message * msg = create_message(&data[ptr]);
     msg->return_node_id = return_id;
     ptr += msg->get_size();
-    all_msgs->push_back(msg);
+    msgs->push_back(msg);
     --txn_cnt;
   }
-  return all_msgs;
+  return msgs;
 }
 
 Message * Message::create_message(char * buf) {
@@ -925,12 +925,14 @@ void ClientQueryMessage::copy_to_buf(char * buf) {
 uint64_t ClientResponseMessage::get_size() {
   uint64_t size = Message::mget_size();
   size += sizeof(uint64_t);
+  size += sizeof(uint64_t);
   return size;
 }
 
 void ClientResponseMessage::copy_from_txn(TxnManager * txn) {
   Message::mcopy_from_txn(txn);
   client_startts = txn->client_startts;
+  server_response_ts = 0;
 }
 
 void ClientResponseMessage::copy_to_txn(TxnManager * txn) {
@@ -942,6 +944,7 @@ void ClientResponseMessage::copy_from_buf(char * buf) {
   Message::mcopy_from_buf(buf);
   uint64_t ptr = Message::mget_size();
   COPY_VAL(client_startts,buf,ptr);
+  COPY_VAL(server_response_ts,buf,ptr);
  assert(ptr == get_size());
 }
 
@@ -949,6 +952,7 @@ void ClientResponseMessage::copy_to_buf(char * buf) {
   Message::mcopy_to_buf(buf);
   uint64_t ptr = Message::mget_size();
   COPY_BUF(buf,client_startts,ptr);
+  COPY_BUF(buf,server_response_ts,ptr);
  assert(ptr == get_size());
 }
 

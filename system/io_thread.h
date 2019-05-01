@@ -36,9 +36,6 @@ public:
   void register_callbacks() {}
   void worker_routine(yield_func_t &yield) {}
   void init_communication_graph();
-  void thread_local_init() {
-    Transport::recv_buffers = new std::queue<char*>();
-  }
 
   RC  client_recv_loop();
   RC  server_recv_loop();
@@ -60,9 +57,6 @@ public:
   void register_callbacks() {}
   void worker_routine(yield_func_t &yield) {}
   void init_communication_graph();
-  void thread_local_init() {
-    Transport::recv_buffers = new std::queue<char*>();
-  }
   
   MessageThread * messager;
 

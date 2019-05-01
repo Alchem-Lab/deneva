@@ -254,6 +254,15 @@ int main(int argc, char* argv[])
 	
   fflush(stdout);
   printf("CLIENT PASS! SimTime = %ld\n", endtime - starttime);
+  if (STATS_TXN_TIMING) {
+    printf("---TXN TIMING STARTS---\n");
+    for (unsigned long i = 0; i < MAX_TXN_CNT; i++) {
+      if (txn_timing[i][TXN_TOTAL_ELPASE] != 0)
+        printf("%lu\t%f\n", i, 
+                          txn_timing[i][TXN_TOTAL_ELPASE]);
+    }
+    printf("---TXN TIMING ENDS---\n");
+  }
   if (STATS_ENABLE)
     stats.print_client(false);
   fflush(stdout);

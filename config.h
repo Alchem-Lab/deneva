@@ -30,7 +30,7 @@
 //#define RPC_CHECKSUM
 #define MAX_INFLIGHT_REPLY 256
 //#define MAX_INFLIGHT_REQS  768  // for TPC-C, smallbank usage
-#define MAX_INFLIGHT_REQS 128
+#define MAX_INFLIGHT_REQS 1
 //#define MAX_INFLIGHT_REQS 16
 
 
@@ -82,7 +82,7 @@
 /***********************************************/
 // Simulation + Hardware
 /***********************************************/
-#define NODE_CNT 3
+#define NODE_CNT 4
 #define THREAD_CNT 1
 #define REM_THREAD_CNT THREAD_CNT
 #define SEND_THREAD_CNT THREAD_CNT
@@ -119,10 +119,11 @@
 // # of transactions to run for warmup
 #define WARMUP            0
 // YCSB or TPCC or PPS
-#define WORKLOAD PPS
+#define WORKLOAD TPCC
 // print the transaction latency distribution
 #define PRT_LAT_DISTR false
 #define STATS_ENABLE        true
+#define STATS_TXN_TIMING    true
 #define TIME_ENABLE         true //STATS_ENABLE
 
 #define FIN_BY_TIME true
@@ -171,13 +172,13 @@
 #define PRIORITY_WORK_QUEUE false
 #define PRIORITY PRIORITY_ACTIVE
 #define MSG_SIZE_MAX 4096
-#define MSG_TIME_LIMIT 0
+#define MSG_TIME_LIMIT 0 * MILLION
 
 /***********************************************/
 // Concurrency Control
 /***********************************************/
 // WAIT_DIE, NO_WAIT, TIMESTAMP, MVCC, CALVIN, MAAT
-#define CC_ALG CALVIN
+#define CC_ALG NO_WAIT
 #define ISOLATION_LEVEL SERIALIZABLE
 #define YCSB_ABORT_MODE false
 
@@ -338,6 +339,8 @@ enum PPSTxnType {PPS_ALL = 0,
 #define IDX_VERB          false
 #define VERB_ALLOC          true
 
+#define DEBUG_ASSERT          false
+#define DEBUG_CHECKSUM        false
 #define DEBUG_MESSAGEQUEUE    false
 #define DEBUG_ABORTQUEUE      false
 #define DEBUG_TRANSACTION     false
@@ -427,7 +430,7 @@ enum PPSTxnType {PPS_ALL = 0,
 #define BILLION 1000000000UL // in ns => 1 second
 #define MILLION 1000000UL // in ns => 1 second
 #define STAT_ARR_SIZE 1024
-#define PROG_TIMER 1 * BILLION // in s
+#define PROG_TIMER 10 * BILLION // in s
 #define BATCH_TIMER 0
 #define SEQ_BATCH_TIMER 5 * 1 * MILLION // ~5ms -- same as CALVIN paper
 #define DONE_TIMER 1 * 60 * BILLION // ~1 minutes

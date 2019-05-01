@@ -81,7 +81,6 @@ void MessageThread::send_batch(uint64_t dest_node_id) {
     //     fprintf(stderr, "txn %lu of type %d going to sent.\n", msgs->front()->txn_id, msgs->front()->rtype);
     //   msgs->erase(msgs->begin());
     // }
-    
     DEBUG_COMM("Send batch of %ld msgs to %ld:%ld\n", sbuf->cnt, dest_node_id, _recv_thd_id);
     tport_man.send_msg_to_thread_rdma(_thd_id, dest_node_id, _recv_thd_id, sbuf->buffer,sbuf->ptr);
 #else
@@ -119,6 +118,11 @@ void MessageThread::run() {
   assert(dest_node_id < g_total_node_cnt);
   assert(dest_node_id != g_node_id);
 
+  if (msg->rtype == CL_RSP) {
+    DEBUG_TXN("TXN %ld Send CL_RSP @ %f\n",msg->txn_id, simulation->seconds_from_start(get_sys_clock()));
+    if(STATS_TXN_TIMING && msg->txn_id < MAX_TXN_CNT)    
+      txn_timing[msg->txn_id][TXN_SEND_CL_RSP] = simulation->seconds_from_start(get_sys_clock());
+  }
   sbuf = buffer[dest_node_id];
 
   // if (msg->rtype == CL_RSP) {

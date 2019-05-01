@@ -42,7 +42,7 @@ OBJS_UNIT = $(addprefix obj/, $(notdir $(CPPS_UNIT:.cpp=.o)) $(CCS_UNIT:.cc=.o))
 
 #NOGRAPHITE=1
 
-all:rundb runcl 
+all:rundb runcl
 #unit_test
 
 .PHONY: deps_db
@@ -108,7 +108,6 @@ rundb : $(OBJS_DB)
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
 ./obj/%.o: %.cpp
 	$(CC) -c $(CFLAGS) $(INCLUDE) -o $@ $<
-
 
 runcl : $(OBJS_CL)
 	$(CC) -o $@ $^ $(LDFLAGS) $(LIBS)

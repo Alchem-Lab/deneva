@@ -37,7 +37,7 @@
 
 #if USE_RDMA == 1
 __thread rdmaio::MsgHandler* Transport::msg_handler = NULL;
-__thread std::queue<char*>* Transport::recv_buffers = NULL;
+__thread std::vector<Message*>* Transport::all_msgs = NULL;
 #endif
 
 std::string Transport::host_to_ip(const std::string &host) {
@@ -360,19 +360,24 @@ void Transport::send_msg_rdma(uint64_t send_thread_id, uint64_t dest_node_id, vo
   INC_STATS(send_thread_id,msg_send_cnt,1);
 }
 
+#if DEBUG_CHECKSUM
 static uint32_t checksum(char* buf,unsigned len) {
 	uint32_t res = 0;
 	for (unsigned i = 0; i < len; i++)
 		res ^= (uint32_t)buf[i];
 	return res;
 }
+#endif
 
 // send msg through RDMA connection
 void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_node_id, uint64_t dest_thread_id, void * sbuf,int size) {
   uint64_t starttime = get_sys_clock();
+#if DEBUG_ASSERT
   assert(msg_handler != NULL);
   assert(size == (*((int32_t*)((char*)sbuf + 4*sizeof(int32_t)))));
-  
+#endif
+
+#if DEBUG_CHECKSUM
   uint32_t check = checksum((char*)sbuf + sizeof(uint32_t)*4, (unsigned)size-sizeof(uint32_t)*4);
   // pthread_mutex_lock(&g_lock);
   // fprintf(stderr, "%ld: Sending %d bytes to node %ld, thread %ld\n", send_thread_id,size,dest_node_id, dest_thread_id);
@@ -383,8 +388,12 @@ void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_n
   // pthread_mutex_unlock(&g_lock);
 
   assert(check == (*((uint32_t*)((char*)sbuf + 3*sizeof(int32_t)))));
+#endif
+
+#if DEBUG_ASSERT
   assert((uint64_t)(*((int32_t*)sbuf)) == dest_node_id);
   assert((uint64_t)(*((int32_t*)((char*)sbuf + sizeof(int32_t)))) == g_node_id);
+#endif
   
   msg_handler->send_to(dest_node_id, dest_thread_id, (char*)sbuf, size);
   DEBUG_COMM("%ld Batch of %d bytes sent to node %ld, thread %ld\n",send_thread_id,size,dest_node_id, dest_thread_id);
@@ -458,35 +467,19 @@ std::vector<Message*> * Transport::recv_msg(uint64_t thd_id) {
 #if USE_RDMA == 1
 std::vector<Message*> * Transport::recv_msg_rdma(uint64_t thd_id) {
   uint64_t starttime = get_sys_clock();
-  std::vector<Message*> * all_msgs = NULL;
   assert(msg_handler != NULL);
-  assert(recv_buffers != NULL && recv_buffers->empty());
+  all_msgs = new std::vector<Message*>();
+  
   if(msg_handler != NULL)
     msg_handler->poll_comps(); // poll rpcs requests/replies
 
-  if (recv_buffers->empty()) {
+  if (all_msgs->empty()) {
     INC_STATS(thd_id,msg_recv_idle_time, get_sys_clock() - starttime);
-    return all_msgs;    
+    return all_msgs;
   }
 
   INC_STATS(thd_id,msg_recv_time, get_sys_clock() - starttime);
-  INC_STATS(thd_id,msg_recv_cnt,1);
-  starttime = get_sys_clock();
-
-  all_msgs = new std::vector<Message*>;
-  while (!recv_buffers->empty()) {
-    char* buf = recv_buffers->front();
-    assert(buf != NULL);
-
-    std::vector<Message*> * msgs = Message::create_messages(buf+sizeof(uint32_t));
-    DEBUG_COMM("Batch message(s) recv from node %ld; Time: %f\n",msgs->front()->return_node_id,
-                                                                 simulation->seconds_from_start(get_sys_clock()));
-    all_msgs->insert(all_msgs->end(), msgs->begin(), msgs->end());
-    mem_allocator.free(buf, *(uint32_t*)buf);
-    recv_buffers->pop();
-  }
-  
-  INC_STATS(thd_id,msg_unpack_time,get_sys_clock()-starttime);
+  INC_STATS(thd_id,msg_recv_cnt, all_msgs->size());
   return all_msgs;
 }
 

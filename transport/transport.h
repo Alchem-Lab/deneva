@@ -80,7 +80,7 @@ class Transport {
     char* rdma_buffer = NULL;
     char* free_buffer = NULL;
     static __thread rdmaio::MsgHandler* msg_handler; // per thread msg_handler
-    static __thread std::queue<char*>* recv_buffers;
+    static __thread std::vector<Message*>* all_msgs;
 
     /**
     * RDMA RC based message.

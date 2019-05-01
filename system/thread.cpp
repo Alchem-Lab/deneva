@@ -119,6 +119,8 @@ void Thread::tRDMAsetup() {
   this->thread_local_init();   // application specific init
   register_callbacks();
 }
+
+void Thread::thread_local_init() {}
 #endif
 
 void Thread::tsetup() {

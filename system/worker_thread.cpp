@@ -144,11 +144,15 @@ void WorkerThread::commit() {
   assert(IS_LOCAL(txn_man->get_txn_id()));
 
   uint64_t timespan = get_sys_clock() - txn_man->txn_stats.starttime;
-  DEBUG_TXN("COMMIT %ld %f -- %f\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),(double)timespan/ BILLION);
+  DEBUG_TXN("Txn %lu COMMIT @ %f -- %f\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),(double)timespan/ BILLION);
+  if(STATS_TXN_TIMING && txn_man->get_txn_id() < MAX_TXN_CNT)
+    txn_timing[txn_man->get_txn_id()][TXN_COMMIT] = simulation->seconds_from_start(get_sys_clock());
 
   // Send result back to client
 #if !SERVER_GENERATE_QUERIES
-  msg_queue.enqueue(get_thd_id(),Message::create_message(txn_man,CL_RSP),txn_man->client_id);
+  Message* msg = Message::create_message(txn_man,CL_RSP);
+  ((ClientResponseMessage*)msg)->server_response_ts = get_sys_clock();
+  msg_queue.enqueue(get_thd_id(),msg,txn_man->client_id);
 #endif
   // remove txn from pool
   release_txn_man();
@@ -158,7 +162,7 @@ void WorkerThread::commit() {
 
 void WorkerThread::abort() {
 
-  DEBUG_TXN("ABORT %ld -- %f\n",txn_man->get_txn_id(),(double)get_sys_clock() - run_starttime/ BILLION);
+  DEBUG_TXN("Txn %lu ABORT @ %f -- %f\n",txn_man->get_txn_id(), simulation->seconds_from_start(get_sys_clock()), (double)get_sys_clock() - run_starttime/ BILLION);
   // TODO: TPCC Rollback here
 
   ++txn_man->abort_cnt;
@@ -464,12 +468,18 @@ RC WorkerThread::process_rtxn(Message * msg) {
 
         if(msg->get_rtype() == CL_QRY) {
           // This is a new transaction
-
 					// Only set new txn_id when txn first starts
           txn_id = get_next_txn_id();
           msg->txn_id = txn_id;
 
-					// Put txn in txn_table
+          DEBUG_TXN("Txn %lu Server Recv CL_QRY @ %f -- %f\n", msg->txn_id, 
+                            simulation->seconds_from_start(get_sys_clock()), 
+                            (double)(get_sys_clock() - ((ClientQueryMessage*)msg)->client_startts) / BILLION);
+          // assert(msg->txn_id < MAX_TXN_CNT);
+          if(STATS_TXN_TIMING && msg->txn_id < MAX_TXN_CNT) {
+              txn_timing[msg->txn_id][TXN_RECV_CL_QRY] = simulation->seconds_from_start(get_sys_clock());
+			    }
+          // Put txn in txn_table
           txn_man = txn_table.get_transaction_manager(get_thd_id(),txn_id,0);
           txn_man->register_thread(this);
           uint64_t ready_starttime = get_sys_clock();
@@ -483,11 +493,14 @@ RC WorkerThread::process_rtxn(Message * msg) {
           txn_man->txn_stats.restart_starttime = txn_man->txn_stats.starttime;
           msg->copy_to_txn(txn_man);
           DEBUG_TXN("START %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
+          if(STATS_TXN_TIMING && txn_man->get_txn_id() < MAX_TXN_CNT)
+            txn_timing[txn_man->get_txn_id()][TXN_START] = simulation->seconds_from_start(get_sys_clock());
           INC_STATS(get_thd_id(),local_txn_start_cnt,1);
 
         } else {
             txn_man->txn_stats.restart_starttime = get_sys_clock();
           DEBUG_TXN("RESTART %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
+          
         }
 
           // Get new timestamps

@@ -238,6 +238,7 @@ public:
 
   RC rc;
   uint64_t client_startts;
+  uint64_t server_response_ts;
 };
 
 class ClientQueryMessage : public Message {

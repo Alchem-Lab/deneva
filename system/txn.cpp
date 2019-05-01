@@ -497,7 +497,11 @@ RC TxnManager::start_abort() {
 
 RC TxnManager::start_commit() {
   RC rc = RCOK;
-  DEBUG_TXN("%ld start_commit RO?%d, is_multi_part?%d\n",get_txn_id(),query->readonly(), is_multi_part());
+
+  DEBUG_TXN("Txn %lu start_commit @ %f, RO?%d, is_multi_part?%d\n",get_txn_id(), simulation->seconds_from_start(get_sys_clock()), query->readonly(), is_multi_part());
+  if(STATS_TXN_TIMING && get_txn_id() < MAX_TXN_CNT)
+    txn_timing[get_txn_id()][TXN_START_COMMIT] = simulation->seconds_from_start(get_sys_clock());
+
   if(is_multi_part()) {
     if(!query->readonly() || CC_ALG == OCC || CC_ALG == MAAT) {
       // send prepare messages
@@ -510,6 +514,10 @@ RC TxnManager::start_commit() {
     }
   } else { // is not multi-part
     rc = validate();
+    DEBUG_TXN("Txn %lu validated @ %f\n", get_txn_id(), simulation->seconds_from_start(get_sys_clock()));
+    if(STATS_TXN_TIMING && get_txn_id() < MAX_TXN_CNT)
+      txn_timing[get_txn_id()][TXN_VALIDATE] = simulation->seconds_from_start(get_sys_clock());
+
     if(rc == RCOK)
       rc = commit();
     else

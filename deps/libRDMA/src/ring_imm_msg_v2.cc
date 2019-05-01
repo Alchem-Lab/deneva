@@ -101,7 +101,8 @@ namespace rdmaio {
     Qp::IOStatus
     RingMessage::send_to(int node, int remote_thread, char *msgp,int len) {
       // the len must be encoded in the message.
-      assert(len == *(int*)(msgp+4*sizeof(int32_t)));
+      // assert(len == *(int*)(msgp+4*sizeof(int32_t)));
+      
       //SET_HEADER_TAILER(msgp,len);
       int ret = (int) Qp::IO_SUCC;
 
@@ -122,12 +123,12 @@ namespace rdmaio {
 
       offsets_[offset_idx] += len;
       
-      assert(len <= ring_padding_);
+      // assert(len <= ring_padding_);
 
       // get qp
-      uint64_t id = _COMPACT_ENCODE_ID(node, remote_thread);
+      uint64_t id = offset_idx;
       // fprintf(stderr, "%d:%d sending to %d:%d\n", node_id_, thread_id_, node, remote_thread);
-      assert(qp_vec_.find(id) != qp_vec_.end() && qp_vec_[id] != NULL);
+      // assert(qp_vec_.find(id) != qp_vec_.end() && qp_vec_[id] != NULL);
       Qp *qp = qp_vec_[id];
 
       // calculate send flag
@@ -156,7 +157,7 @@ namespace rdmaio {
       ImmMeta meta;
       meta.nid  = node_id_;
       meta.tid  = thread_id_;
-      assert(len <= recv_buf_size_);
+      // assert(len <= recv_buf_size_);
       meta.seq = seq_[offset_idx];
       seq_[offset_idx] = (seq_[offset_idx]+1) % (1UL<<24);
 
@@ -205,7 +206,7 @@ namespace rdmaio {
     int RingMessage::poll_comps() {
       // assert(false);
       int poll_result = 0;
-      assert(cm_->comm_graph.find(_COMPACT_ENCODE_ID(node_id_, thread_id_)) != cm_->comm_graph.end());
+      // assert(cm_->comm_graph.find(_COMPACT_ENCODE_ID(node_id_, thread_id_)) != cm_->comm_graph.end());
       auto nei = cm_->comm_graph[_COMPACT_ENCODE_ID(node_id_, thread_id_)];
       for(auto itr = nei.begin(); itr != nei.end(); ++itr) 
       {
@@ -234,8 +235,8 @@ namespace rdmaio {
         uint32_t nid = meta.nid;
         uint32_t tid = meta.tid;
         uint32_t ntid = _COMPACT_ENCODE_ID(nid, tid);
-        assert(std::find(nei.begin(), nei.end(), (unsigned)ntid) != nei.end());
-        assert(wc_maps_[ntid]->find(meta.seq) == wc_maps_[ntid]->end());
+        // assert(std::find(nei.begin(), nei.end(), (unsigned)ntid) != nei.end());
+        // assert(wc_maps_[ntid]->find(meta.seq) == wc_maps_[ntid]->end());
         (*wc_maps_[ntid])[meta.seq] = wc_[i];
         // fprintf(stderr, "inserted wc of seq %u and size %u to the map of %u:%u\n", 
         //                                      meta.seq, meta.size, nid, tid);
@@ -284,7 +285,7 @@ namespace rdmaio {
 
           wc_maps_[ntid]->erase(exp_seq_[ntid]);
           exp_seq_[ntid] = (exp_seq_[ntid] + 1) % (1UL<<24);
-          processed += 1;          
+          processed += 1;
         }
       }
 
