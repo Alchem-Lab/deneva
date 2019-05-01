@@ -296,8 +296,12 @@ private:
 	uint64_t seed;
 };
 
-// the following is ued to debug transaction timing issues.
-#define MAX_TXN_CNT 1000*1000*40UL
+// The following is ued to debug transaction timing issues.
+// Note that MAX_TXN_CNT cannot be **TOO** LARGE: e.g., 1000*1000*40.
+// That would cause linking error:
+// relocation truncated to fit: R_X86_64_32S against symbol
+#define MAX_TXN_CNT 1000*1000UL
+
 #define TXN_RECV_CL_QRY 0
 #define TXN_START 1
 #define TXN_START_COMMIT 2
