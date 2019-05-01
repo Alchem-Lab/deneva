@@ -341,7 +341,7 @@ enum PPSTxnType {PPS_ALL = 0,
 #define DEBUG_MESSAGEQUEUE    false
 #define DEBUG_ABORTQUEUE      false
 #define DEBUG_TRANSACTION     false
-#define DEBUG_TIMER           false
+#define DEBUG_TIMER           true
 #define DEBUG_LOCK            false
 #define DEBUG_TIMESTAMP       false
 #define DEBUG_SYNTH           false

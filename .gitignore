@@ -11,4 +11,10 @@ run/slurm.hosts
 **/out
 obj/
 **/build
-deps/libRDMA/lib/librdma.a
+deps/libRDMA/lib/*
+deps/libRDMA/ralloc/.libs/*
+deps/libRDMA/ralloc/*.a
+deps/libRDMA/ralloc/*.la
+deps/libRDMA/ralloc/*.so
+
+
