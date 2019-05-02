@@ -300,15 +300,18 @@ private:
 // Note that MAX_TXN_CNT cannot be **TOO** LARGE: e.g., 1000*1000*40.
 // That would cause linking error:
 // relocation truncated to fit: R_X86_64_32S against symbol
-#define MAX_TXN_CNT 1000*1000UL
+#define MAX_TXN_CNT 100UL
 
-#define TXN_RECV_CL_QRY 0
-#define TXN_START 1
-#define TXN_START_COMMIT 2
-#define TXN_VALIDATE 3
-#define TXN_COMMIT 4
-#define TXN_SEND_CL_RSP 5
-#define TXN_TOTAL_ELPASE 6
-extern double txn_timing[MAX_TXN_CNT][7];
+#define TXN_RECV_CL_QRY 		0
+#define TXN_START 				1
+#define TXN_SUCC_RESTART 		2 
+#define TXN_START_STATE 		3
+#define TXN_START_COMMIT 		4
+#define TXN_VALIDATE 			5
+#define TXN_COMMIT 				6
+#define TXN_SEND_CL_RSP 		7
+#define TXN_TOTAL_ELPASE 		8
+#define TXN_TIMING_FIELDS_CNT 	9
+extern double txn_timing[MAX_TXN_CNT][TXN_TIMING_FIELDS_CNT];
 
 #endif

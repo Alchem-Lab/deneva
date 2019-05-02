@@ -92,8 +92,10 @@ void ClientThread::run() {
 #endif
     assert(m_query);
 
-		DEBUG("Client: thread %lu sending query to node: %u, %d, %f\n",
-				_thd_id, next_node_id,inf_cnt,simulation->seconds_from_start(get_sys_clock()));
+		// DEBUG_TXN("Client: thread %lu sending query to node: %u, %d, %f\n",
+				// _thd_id, next_node_id,inf_cnt,simulation->seconds_from_start(get_sys_clock()));
+
+    DEBUG_TXN("Client Send CL_QRY @ %f\n", simulation->seconds_from_start(get_sys_clock()));
 
     Message * msg = Message::create_message((BaseQuery*)m_query,CL_QRY);
     ((ClientQueryMessage*)msg)->client_startts = get_sys_clock();
@@ -102,6 +104,9 @@ void ClientThread::run() {
 		txns_sent[next_node]++;
     INC_STATS(get_thd_id(),txn_sent_cnt,1);
     // break;
+    // if (num_txns_sent >= MAX_TXN_CNT) {
+    //    break;
+    // }
 	}
 
 

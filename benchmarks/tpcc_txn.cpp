@@ -73,8 +73,10 @@ RC TPCCTxnManager::run_txn() {
     query->print();
 #endif
     query->partitions_touched.add_unique(GET_PART_ID(0,g_node_id));
-  }
 
+    if(STATS_TXN_TIMING && txn->txn_id < MAX_TXN_CNT)
+      txn_timing[txn->txn_id][TXN_START_STATE] = simulation->seconds_from_start(get_sys_clock());
+  }
 
   while(rc == RCOK && !is_done()) {
     rc = run_txn_state();

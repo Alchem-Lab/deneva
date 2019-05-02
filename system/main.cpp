@@ -429,10 +429,12 @@ int main(int argc, char* argv[])
     printf("---TXN TIMING STARTS---\n");
     for (unsigned long i = 0; i < MAX_TXN_CNT; i++) {
       if (txn_timing[i][TXN_RECV_CL_QRY] != 0)
-        printf("%lu\t%f\t%f\t%f\t%f\t%f\t%f\n",
+        printf("%lu\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
                     i,
                     0.0, 
                     txn_timing[i][TXN_START] - txn_timing[i][TXN_RECV_CL_QRY], 
+                    txn_timing[i][TXN_SUCC_RESTART] - txn_timing[i][TXN_RECV_CL_QRY], 
+                    txn_timing[i][TXN_START_STATE] - txn_timing[i][TXN_RECV_CL_QRY],
                     txn_timing[i][TXN_START_COMMIT] - txn_timing[i][TXN_RECV_CL_QRY],
                     txn_timing[i][TXN_VALIDATE] - txn_timing[i][TXN_RECV_CL_QRY],
                     txn_timing[i][TXN_COMMIT] - txn_timing[i][TXN_RECV_CL_QRY],

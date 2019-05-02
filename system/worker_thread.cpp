@@ -492,15 +492,16 @@ RC WorkerThread::process_rtxn(Message * msg) {
           txn_man->txn_stats.starttime = get_sys_clock();
           txn_man->txn_stats.restart_starttime = txn_man->txn_stats.starttime;
           msg->copy_to_txn(txn_man);
-          DEBUG_TXN("START %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
+          DEBUG_TXN("START %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(txn_man->txn_stats.starttime),txn_man->txn_stats.starttime);
           if(STATS_TXN_TIMING && txn_man->get_txn_id() < MAX_TXN_CNT)
-            txn_timing[txn_man->get_txn_id()][TXN_START] = simulation->seconds_from_start(get_sys_clock());
+            txn_timing[txn_man->get_txn_id()][TXN_START] = simulation->seconds_from_start(txn_man->txn_stats.starttime);
           INC_STATS(get_thd_id(),local_txn_start_cnt,1);
 
         } else {
             txn_man->txn_stats.restart_starttime = get_sys_clock();
-          DEBUG_TXN("RESTART %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(get_sys_clock()),txn_man->txn_stats.starttime);
-          
+          DEBUG_TXN("RESTART %ld %f %lu\n",txn_man->get_txn_id(),simulation->seconds_from_start(txn_man->txn_stats.restart_starttime),txn_man->txn_stats.starttime);
+          if(STATS_TXN_TIMING && txn_man->get_txn_id() < MAX_TXN_CNT)
+            txn_timing[txn_man->get_txn_id()][TXN_SUCC_RESTART] = simulation->seconds_from_start(txn_man->txn_stats.restart_starttime);          
         }
 
           // Get new timestamps

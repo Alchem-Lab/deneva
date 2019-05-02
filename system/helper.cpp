@@ -146,4 +146,4 @@ uint64_t myrand::next() {
 	return (seed / 65537) % RAND_MAX;
 }
 
-double txn_timing[MAX_TXN_CNT][7] = {0};
+double txn_timing[MAX_TXN_CNT][TXN_TIMING_FIELDS_CNT] = {0};
