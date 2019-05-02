@@ -20,32 +20,34 @@ if os.path.isdir(out_path) == False:
 series = ['TCP','RDMA']
 workloads = ['PPS', 'TPCC', 'YCSB']
 ccalgs = ['WAIT_DIE','NO_WAIT','TIMESTAMP','MVCC','CALVIN','MAAT','OCC']
-servercnt = [2,4,8]
-
+server_cnts = [2,4,8]
+client_cnts = [2,4,8]
 plt.clf()
 plt.figure(figsize=(16,9))
 
 cc_outs=[]
 for wl in range(len(workloads)):	
-	for sc_cnt in range(len(servercnt)):
-		j = wl*len(servercnt)+sc_cnt
+	for idx, server_cnt in enumerate(server_cnts):
+		j = wl*len(server_cnts)+idx
 		ax = plt.subplot(3, 3, j+1)
 
 		cc_outs.append([])
 		for protocal in series:
 			cc_outs[-1].append([])
 			for inpt in ccalgs:
-				fname = out_path + 'client_' + protocal + '_SERVERCNT' + str(servercnt[sc_cnt]) + '_' + workloads[wl] + '_' + inpt + '.out'
-				res = ""
-				if os.path.isfile(fname) == True:
-					ps = subprocess.Popen(('awk', '-F,', '/\[summary\]/ {print $2}', fname), stdout=subprocess.PIPE)
-					res = subprocess.check_output(('awk', '-F=', '{print $2}'), stdin=ps.stdout)
-					ps.wait()
-				if(res.strip() == ""):
-					cc_outs[-1][-1].append(0)
-				else: 
-					print(res)
-					cc_outs[-1][-1].append(int(float(res)/1000))
+				tput_sum = 0
+				for cl_idx in range(client_cnts[idx]):
+					fname = out_path + 'client_' + protocal + '_SERVERCNT' + str(server_cnt) + '_' + workloads[wl] + '_' + inpt + '_CLIENT' + str(server_cnt+cl_idx) + '.out'
+					res = ""
+					if os.path.isfile(fname) == True:
+						ps = subprocess.Popen(('awk', '-F,', '/\[summary\]/ {print $2}', fname), stdout=subprocess.PIPE)
+						res = subprocess.check_output(('awk', '-F=', '{print $2}'), stdin=ps.stdout)
+						ps.wait()
+					else:
+						print(fname + ' does not exist.')
+					if(res.strip() != ""):
+						tput_sum += int(float(res)/1000)
+				cc_outs[-1][-1].append(tput_sum)
 
 		width = 0.3
 		colors=['b','g','r','c','m','y','k','grey']
@@ -60,9 +62,9 @@ for wl in range(len(workloads)):
 		for idx in range(len(series)):
 			rects_list.append(plt.bar(y_pos+idx*width, cc_outs[j][idx], width, color=colors[idx], alpha=0.8, linewidth=0.1))
 		
-		if j % len(servercnt) == 0:
+		if j % len(server_cnts) == 0:
 			plt.ylabel('Throughput (Trousand txns/s)', fontsize=8)
-		plt.title(workloads[wl]+'_'+str(servercnt[sc_cnt]), fontsize=8, loc='right')
+		plt.title(workloads[wl]+'_'+str(server_cnt), fontsize=8, loc='right')
 		#plt.xticks([], [])
 		ax.get_xaxis().set_tick_params(direction='in', width=1, length=0)
 		plt.xticks(y_pos+width*len(series)/2, objs, fontsize=6, rotation=0)

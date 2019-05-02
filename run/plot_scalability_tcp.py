@@ -19,6 +19,7 @@ if os.path.isdir(out_path) == False:
 
 workloads = ['PPS', 'TPCC', 'YCSB']
 server_cnts = [2,4,8]
+client_cnts = [2,4,8]
 ccalgs = ['WAIT_DIE','NO_WAIT','TIMESTAMP','MVCC','CALVIN','MAAT','OCC']
 
 plt.clf()
@@ -31,18 +32,20 @@ for j in range(len(workloads)):
 	cc_outs.append([])
 	for cc in ccalgs:
 		cc_outs[-1].append([])
-		for inpt in server_cnts:
-			fname = out_path + 'client_' + 'TCP' + '_SERVERCNT' + str(inpt) + '_' + workloads[j] + '_' + cc + '.out'
-			res = ""
-			if os.path.isfile(fname) == True:
-				ps = subprocess.Popen(('awk', '-F,', '/\[summary\]/ {print $2}', fname), stdout=subprocess.PIPE)
-				res = subprocess.check_output(('awk', '-F=', '{print $2}'), stdin=ps.stdout)
-				ps.wait()
-			if(res.strip() == ""):
-				cc_outs[-1][-1].append(0)
-			else: 
-				print(res)
-				cc_outs[-1][-1].append(int(float(res)/1000))
+		for idx, inpt in enumerate(server_cnts):
+			tput_sum = 0
+			for cl_idx in range(client_cnts[idx]):
+				fname = out_path + 'client_' + 'TCP' + '_SERVERCNT' + str(inpt) + '_' + workloads[j] + '_' + cc + '_CLIENT' + str(inpt+cl_idx) + '.out'
+				res = ""
+				if os.path.isfile(fname) == True:
+					ps = subprocess.Popen(('awk', '-F,', '/\[summary\]/ {print $2}', fname), stdout=subprocess.PIPE)
+					res = subprocess.check_output(('awk', '-F=', '{print $2}'), stdin=ps.stdout)
+					ps.wait()
+				else:
+					print(fname + ' does not exist.')
+				if(res.strip() != ""):
+					tput_sum += int(float(res)/1000)
+			cc_outs[-1][-1].append(tput_sum)
 
 	width = 0.15
 	colors=['b','g','r','c','m','y','k','grey']
