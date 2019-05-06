@@ -252,20 +252,31 @@ void OutputThread::run() {
 void InputThread::init_communication_graph() {
   unsigned my_id = _COMPACT_ENCODE_ID(_node_id, _thd_id);
   cm_->comm_graph[my_id].clear();
-  for (uint i = 0; i < g_total_node_cnt; i++) {
-    int output_thread_id = 2;
-    if (i != _node_id) {
-      uint the_other_id = _COMPACT_ENCODE_ID(i, output_thread_id);
-      cm_->comm_graph[my_id].push_back(the_other_id);
-      /**
-         If that thread is located on another machine, 
-         the reverse edge is added since there won't be 
-         any communication for that thread to add its 
-         adj list to the comm_graph on this machine.
-      **/
-      // cm_->comm_graph[the_other_id].push_back(my_id);
-    }
-  }
+  // if (ISCLIENT) {
+  //     for (uint i = 0; i < g_total_node_cnt; i++) {
+  //       int output_thread_id = 2;
+  //       if (i != _node_id && ISSERVERN(i)) {
+  //         uint the_other_id = _COMPACT_ENCODE_ID(i, output_thread_id);
+  //         cm_->comm_graph[my_id].push_back(the_other_id);
+  //       }
+  //     }
+  // } else if (ISSERVER) {
+      for (uint i = 0; i < g_total_node_cnt; i++) {
+        int output_thread_id = 2;
+        if (i != _node_id) {
+          uint the_other_id = _COMPACT_ENCODE_ID(i, output_thread_id);
+          cm_->comm_graph[my_id].push_back(the_other_id);
+          /**
+             If that thread is located on another machine, 
+             the reverse edge is added since there won't be 
+             any communication for that thread to add its 
+             adj list to the comm_graph on this machine.
+          **/
+          // cm_->comm_graph[the_other_id].push_back(my_id);
+        }
+      }
+    // } else 
+    //   assert(false);
   cm_->comm_graph_ready[_thd_id] = true;
 }
 
@@ -294,15 +305,17 @@ bool InputThread::poll_comp_callback(char *buf, int from_nid,int from_tid) {
   uint64_t starttime = get_sys_clock();
 #if DEBUG_CHECKSUM
       int32_t len = *((int32_t*)(buf + 4*sizeof(int32_t)));
-      fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
       uint32_t check = checksum(buf + 4*sizeof(uint32_t), len-sizeof(uint32_t)*4);
       if (check != *((uint32_t*)(buf + 3*sizeof(int32_t)))) {
-    	  pthread_mutex_lock(&g_lock);
-    	  for (int i = 0; i < len; i++) {
-    	    fprintf(stderr, "0x%x ", (unsigned char)buf[i]);
-    	  }
-    	  fprintf(stderr, "Checksum Failed.\n");
-    	  pthread_mutex_unlock(&g_lock);
+        fprintf(stderr, "InputThread: received msg of length %u from %d:%d\n", len, from_nid, from_tid);
+    	  if DEBUG_CHECKSUM_DETAIL
+            pthread_mutex_lock(&g_lock);
+        	  for (int i = 0; i < len; i++) {
+        	    fprintf(stderr, "0x%x ", (unsigned char)buf[i]);
+        	  }
+        	  pthread_mutex_unlock(&g_lock);
+        #endif
+        fprintf(stderr, "Checksum Failed.\n");
     	  assert(false);
       }
 #endif
@@ -341,17 +354,27 @@ void InputThread::create_rdma_ud_raw_connections(int total_connections) {
 void OutputThread::init_communication_graph() {
   uint my_id = _COMPACT_ENCODE_ID(_node_id, _thd_id);
   cm_->comm_graph[my_id].clear();
-  for (uint i = 0; i < g_total_node_cnt; i++) {
-    const int input_thread_id = 1;
-    if (i != _node_id) {
-      uint the_other_id = _COMPACT_ENCODE_ID(i, input_thread_id);
-      cm_->comm_graph[my_id].push_back(the_other_id);
-      // If that thread is located on another machine, the reverse edge is added since
-      // there won't be any communication for that thread to add its adj list to the comm_graph on this machine.
-      // cm_->comm_graph[the_other_id].push_back(my_id);
-    }
-  }
-
+  // if (ISCLIENT) {
+  //     for (uint i = 0; i < g_total_node_cnt; i++) {
+  //       const int input_thread_id = 1;
+  //       if (i != _node_id && ISSERVERN(i)) {
+  //         uint the_other_id = _COMPACT_ENCODE_ID(i, input_thread_id);
+  //         cm_->comm_graph[my_id].push_back(the_other_id);
+  //       }
+  //     }
+  // } else if (ISSERVER) {
+      for (uint i = 0; i < g_total_node_cnt; i++) {
+        const int input_thread_id = 1;
+        if (i != _node_id) {
+          uint the_other_id = _COMPACT_ENCODE_ID(i, input_thread_id);
+          cm_->comm_graph[my_id].push_back(the_other_id);
+          // If that thread is located on another machine, the reverse edge is added since
+          // there won't be any communication for that thread to add its adj list to the comm_graph on this machine.
+          // cm_->comm_graph[the_other_id].push_back(my_id);
+        }
+      }
+  // } else
+  //     assert(false);
   cm_->comm_graph_ready[_thd_id] = true;
 }
 

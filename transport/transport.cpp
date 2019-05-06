@@ -372,25 +372,26 @@ static uint32_t checksum(char* buf,unsigned len) {
 // send msg through RDMA connection
 void Transport::send_msg_to_thread_rdma(uint64_t send_thread_id, uint64_t dest_node_id, uint64_t dest_thread_id, void * sbuf,int size) {
   uint64_t starttime = get_sys_clock();
-#if DEBUG_ASSERT
+#if DEBUG_MY_ASSERT
   assert(msg_handler != NULL);
   assert(size == (*((int32_t*)((char*)sbuf + 4*sizeof(int32_t)))));
 #endif
 
 #if DEBUG_CHECKSUM
   uint32_t check = checksum((char*)sbuf + sizeof(uint32_t)*4, (unsigned)size-sizeof(uint32_t)*4);
-  // pthread_mutex_lock(&g_lock);
-  // fprintf(stderr, "%ld: Sending %d bytes to node %ld, thread %ld\n", send_thread_id,size,dest_node_id, dest_thread_id);
-  // for (int i = 0; i < size; i++) {
-  //  fprintf(stderr, "0x%x ", ((unsigned char*)sbuf)[i]);
-  // }
-  // fprintf(stderr, "checksum=%u\n", check);
-  // pthread_mutex_unlock(&g_lock);
-
+#if DEBUG_CHECKSUM_DETAIL
+  pthread_mutex_lock(&g_lock);
+  fprintf(stderr, "%ld: Sending %d bytes to node %ld, thread %ld\n", send_thread_id,size,dest_node_id, dest_thread_id);
+  for (int i = 0; i < size; i++) {
+   fprintf(stderr, "0x%x ", ((unsigned char*)sbuf)[i]);
+  }
+  fprintf(stderr, "checksum=%u\n", check);
+  pthread_mutex_unlock(&g_lock);
+#endif
   assert(check == (*((uint32_t*)((char*)sbuf + 3*sizeof(int32_t)))));
 #endif
 
-#if DEBUG_ASSERT
+#if DEBUG_MY_ASSERT
   assert((uint64_t)(*((int32_t*)sbuf)) == dest_node_id);
   assert((uint64_t)(*((int32_t*)((char*)sbuf + sizeof(int32_t)))) == g_node_id);
 #endif
